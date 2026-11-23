@@ -934,10 +934,58 @@ function openModal(id){
     <label>Сфера<select id="m-cat">${Object.keys(CATS).map(k=>`<option value="${k}" ${t.cat===k?'selected':''}>${CATS[k].n}</option>`).join('')}</select></label>
     <label>Тип работы<select id="m-kind">${Object.keys(KINDS).map(k=>`<option value="${k}" ${(t.kind||'gen')===k?'selected':''}>${KINDS[k][0]}</option>`).join('')}</select></label>
     ${t.rep?`<div class="banner" style="margin:0"><span>Серия: ${t.rep.i} из ${t.rep.n}</span><button type="button" class="btn sm ghost" data-act="delser" data-id="${t.id}" style="color:var(--bad)">Убрать невыполненные</button></div>`:`<div class="grid2"><label>Повторять<select id="m-rep"><option value="">Не повторять</option><option value="day">Каждый день</option><option value="alt">Через день</option><option value="wd">По будням</option><option value="week">Раз в неделю</option></select></label><label>Всего раз<input type="number" id="m-repn" min="2" max="30" value="5"></label></div>`}
+    <button type="button" class="btn" data-act="aisplit" data-id="${t.id}">✨ ИИ: разбить на маленькие шаги</button>
     <button type="button" class="btn" data-act="apstart" data-id="${t.id}">Анти-перфекционист: 5 минут</button>
     <div class="row" style="justify-content:space-between;margin-top:4px"><button type="button" class="btn ghost" data-act="del" data-id="${t.id}" style="color:var(--bad)">Удалить</button>
     <div class="row"><button type="button" class="btn" data-act="closeModal">Отмена</button><button type="submit" class="btn primary">Сохранить</button></div></div></form></div>`;
   $('#m-title').focus();
+}
+/* ---------- ИИ: разбивка дела на микрошаги (Gemini, ключ хранится только в браузере) ---------- */
+let AIS=null;
+const AIK='ritm-ai';
+const aiCfg=()=>{try{return JSON.parse(localStorage.getItem(AIK))||{}}catch(e){return {}}};
+async function callAI(prompt){
+  const c=aiCfg(),model=(c.model||'gemini-2.5-flash').trim();
+  let r;
+  try{r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(model)+':generateContent',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':c.key},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{responseMimeType:'application/json',temperature:0.4}})})}
+  catch(e){throw {code:'network'}}
+  if(!r.ok)throw {code:r.status};
+  const j=await r.json(),t=(((j.candidates||[])[0]||{}).content||{}).parts;
+  const txt=(t||[]).map(p=>p.text||'').join('').replace(/```json|```/g,'').trim();
+  return JSON.parse(txt);
+}
+function aiPaint(){
+  if(!AIS)return;const t=S.tasks.find(x=>x.id===AIS.id);if(!t){AIS=null;return}
+  const c=aiCfg();let body,btns='';
+  if(AIS.setup){
+    body=`<div class="muted" style="font-size:13px">Чтобы ИИ работал, нужен твой бесплатный ключ Google Gemini. Получи его на <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> и вставь сюда. Ключ хранится только в этом браузере.</div>
+    <label>Ключ API<input type="password" id="ai-key" autocomplete="off" value="${esc(c.key||'')}" placeholder="AIza…"></label>
+    <label>Модель<input type="text" id="ai-model" value="${esc(c.model||'gemini-2.5-flash')}"></label>`;
+    btns='<button class="btn primary" data-act="aikeysave">Сохранить и разбить</button>';
+  }else if(AIS.busy)body='<div class="muted" role="status">Думаю, как сделать это не страшным…</div>';
+  else if(AIS.err){body=`<div class="muted">${esc(AIS.err)}</div>`;btns='<button class="btn" data-act="aicfg">Настройки ИИ</button>'}
+  else{body=`<div class="muted" style="font-size:13px">Снимай галочки с лишнего. Каждый шаг короткий, первый совсем маленький.</div><div class="stack" id="ais" style="gap:8px">${AIS.steps.map((x,i)=>`<label class="li" style="font-size:14px;color:var(--ink);font-weight:500;cursor:pointer"><span>${esc(x.t)} <span class="muted">· ${durLabel(x.m)}</span></span><input type="checkbox" data-i="${i}" checked style="width:22px;height:22px;flex:none"></label>`).join('')}</div>`;btns='<button class="btn primary" data-act="aisplitok">Добавить в план</button>'}
+  $('#layer').innerHTML=`<div class="scrim" data-act="closeModal"><div class="modal" role="dialog" aria-modal="true"><div class="eyebrow">ИИ-помощник</div><h3 style="font-size:18px">${esc(t.title)}</h3>${body}<div class="row" style="justify-content:flex-end"><button class="btn" data-act="closeModal">Закрыть</button>${btns}</div></div></div>`;
+}
+async function aiSplit(id){
+  const t=S.tasks.find(x=>x.id===id);if(!t)return;
+  if(!aiCfg().key){AIS={id,setup:true};aiPaint();return}
+  AIS={id,busy:true,steps:[]};aiPaint();
+  const e=bat(todayS()),
+    p='Ты мягкий помощник студента. Разбей дело на 3–6 конкретных шагов. Первый шаг должен быть очень маленьким (до 5 минут), остальные по 10–25 минут. Шаги в повелительном наклонении, без воды и без оценок. '+
+    'Дело: «'+t.title+'». Тип работы: '+((KINDS[t.kind||'gen']||[''])[0])+'. Всего запланировано: '+t.dur+' мин.'+(t.due?' Срок: '+t.due+'.':'')+(e?' Энергия сегодня '+e+' из 10'+(e<=3?', поэтому шаги сделай ещё меньше.':'.'):'')+
+    ' Верни только JSON: {"steps":[{"t":"что сделать","m":15}]}. Без пояснений и без markdown.';
+  try{
+    const r=await callAI(p);
+    const st=((r&&r.steps)||[]).filter(x=>x&&typeof x.t==='string'&&x.t.trim()).slice(0,8).map(x=>({t:x.t.trim().slice(0,120),m:Math.min(30,r5(+x.m||15))}));
+    if(!AIS||AIS.id!==id)return;
+    AIS=st.length?{id,steps:st}:{id,err:'Не получилось придумать шаги. Попробуй переформулировать дело.'};
+  }catch(err){
+    if(!AIS||AIS.id!==id)return;
+    const c=err&&err.code;
+    AIS={id,err:c===429?'Лимит запросов исчерпан. Подожди минуту и попробуй снова.':c===400||c===403?'Google не принял ключ. Проверь ключ в настройках ИИ.':c===404?'Такой модели нет. Проверь название модели в настройках ИИ.':c==='network'?'Нет связи с сервисом ИИ. Проверь интернет.':'Не получилось получить ответ. Попробуй ещё раз.'};
+  }
+  aiPaint();
 }
 const closeModal=()=>{$('#layer').innerHTML=''};
 const TCOL=['#7A5AF8','#D45FA8','#E58A3C','#3FA67A','#3E9BD6','#1FA5A0','#C9533F','#8A6D3B'];
@@ -1179,6 +1227,14 @@ document.addEventListener('click',e=>{
     case 'recpick':{const x=REC&&REC.list[+el.dataset.i];if(!x)break;const p=REC.p;
       S.tasks.push({id:uid(),title:p.title,cat:p.cat||curCat,date:x.d,time:fromM(x.start),dur:p.dur,prio:p.prio,due:p.due||null,done:false});
       REC=null;const q=$('#qa');if(q)q.value='';save();render();toast('Поставила: '+dLabel(x.d)+' в '+fromM(x.start));break}
+    case 'aisplit':aiSplit(id);break;
+    case 'aicfg':if(AIS){AIS={id:AIS.id,setup:true};aiPaint()}break;
+    case 'aikeysave':{const k=($('#ai-key').value||'').trim();if(!k){toast('Вставь ключ');break}try{localStorage.setItem(AIK,JSON.stringify({key:k,model:($('#ai-model').value||'').trim()||'gemini-2.5-flash'}))}catch(x){toast('Не удалось сохранить ключ в браузере');break}const i=AIS&&AIS.id;if(i)aiSplit(i);break}
+    case 'aisplitok':{const t=AIS&&S.tasks.find(x=>x.id===AIS.id);if(!t)break;
+      const pick=[...document.querySelectorAll('#ais input:checked')].map(x=>AIS.steps[+x.dataset.i]).filter(Boolean);
+      if(!pick.length){toast('Выбери хотя бы один шаг');break}
+      pick.forEach((x,i)=>S.tasks.push({id:uid(),title:(i+1)+'/'+pick.length+' '+x.t,cat:t.cat,date:t.date||todayS(),time:null,dur:x.m,prio:t.prio,due:t.due||null,done:false}));
+      AIS=null;save();closeModal();render();toast('Добавила шагов: '+pick.length);break}
     case 'edit':openModal(id);break;
     case 'lazyuse':{const c=S.lazy.credit;if(c<1)break;S.lazy.credit=0;save();mtOpen({title:'Легальная лень',sub:'Ты это заработала. Дела подождут: никакой почты и никаких «чуть-чуть доделать».',sec:c*60,btn:'Вернуться',onEnd:(early,l)=>{if(early)S.lazy.credit+=Math.floor(l/60);save();if(view==='joy')render();toast(early?'С возвращением. Остаток отдыха сохранила.':'Отдых закончился. Мягко возвращаемся.')}});break}
     case 'spin':rlPick();render();break;
