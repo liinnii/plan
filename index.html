@@ -60,6 +60,12 @@ main{min-width:0}
 /* generic */
 .card{background:var(--surface);border:1px solid var(--line);border-radius:24px;padding:20px;box-shadow:var(--shadow);min-width:0}
 .card.flat{box-shadow:none;border:1px solid var(--line)}
+.fold-h{display:flex;align-items:center;gap:10px;cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none}
+.fold-h h3.grow{flex:1 1 140px!important;min-width:0}
+.fold-c{flex:none;width:30px;height:30px;border-radius:50%;border:0;background:var(--soft);color:var(--accent);display:grid;place-items:center;cursor:pointer;padding:0}
+.fold-c svg{transition:transform .2s}
+.card.folded .fold-c svg{transform:rotate(-90deg)}
+.card.folded .fold-b{display:none}
 .stack{display:flex;flex-direction:column;gap:16px;min-width:0}
 .cols{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:20px;align-items:start}
 @media (max-width:1000px){.cols{grid-template-columns:minmax(0,1fr)}}
@@ -328,7 +334,7 @@ function seed(){
     tpl:[{id:uid(),text:'Подготовить урок 60м #репетиторство'},{id:uid(),text:'Учёба 1ч #учёба'},{id:uid(),text:'Уборка 30м #дом'},{id:uid(),text:'Прогулка 30м #отдых'}]
   };
 }
-S=load()||seed(); if(!S.tpl)S.tpl=seed().tpl; let flt='all', tagColor='#7A5AF8', lastDel=null, qOpen=false, bulk=false, showRest=false, skipN=0; if(S.soft===undefined)S.soft=true; if(!S.heavy)S.heavy={}; if(!S.battery)S.battery={}; if(!S.pet)S.pet={mode:null,start:0,len:0,base:0,points:0,locked:0,warned:false};
+S=load()||seed(); if(!S.prompts)S.prompts=[]; if(!S.tpl)S.tpl=seed().tpl; let flt='all', tagColor='#7A5AF8', lastDel=null, qOpen=false, bulk=false, showRest=false, skipN=0; if(S.soft===undefined)S.soft=true; if(!S.heavy)S.heavy={}; if(!S.battery)S.battery={}; if(!S.pet)S.pet={mode:null,start:0,len:0,base:0,points:0,locked:0,warned:false};
 if(!S.why)S.why=[];if(!S.winLog)S.winLog={};if(!S.lazy)S.lazy={min:0,credit:0};if(!S.duck)S.duck=[];if(S.draft===undefined)S.draft='';if(!S.care)S.care=[]; if(!S.doneDays)S.doneDays={}; if(S.wins===undefined)S.wins=S.tasks.filter(t=>t.done).length;
 if(!S.reward)S.reward={text:'',goal:10}; if(!S.game)S.game={best:{}}; if(!S.hist)S.hist=[];
 if(!S.joy)S.joy=['Любимый плейлист и чай','Позвонить подруге','Тёплый душ и пижама','Посмотреть серию с вкусняшкой'].map(t=>({id:uid(),text:t}));
@@ -945,9 +951,45 @@ document.addEventListener('click',e=>{
     else gPaint();
   }else{G.lock=true;gPaint();setTimeout(()=>{if(!G)return;f.open=c.open=false;G.lock=false;gPaint()},800)}
 });
+/* ---------- сворачивание карточек ---------- */
+function foldify(){
+  if(view==='ai')return;
+  document.querySelectorAll('#main section.card').forEach(c=>{
+    if(c.id==='petcard'||c.dataset.fold||c.closest('.fold-b'))return;
+    const isQa=c.classList.contains('qa');let hd=null;
+    if(isQa){hd=document.createElement('div');hd.className='eyebrow';hd.textContent='Составление плана · добавить дело';c.insertBefore(hd,c.firstChild)}
+    else{const f=c.firstElementChild;if(!f)return;
+      if(f.matches('.eyebrow,h2,h3')||(f.matches('.row')&&f.querySelector('h3')))hd=f;else return}
+    const tt=(hd.querySelector('h3')||hd).textContent.replace(/\s+/g,' ').trim().slice(0,40);
+    const key=view+':'+(isQa?'qa':tt);
+    const body=document.createElement('div');body.className='fold-b';
+    while(hd.nextSibling)body.appendChild(hd.nextSibling);
+    c.appendChild(body);
+    const btn=document.createElement('button');btn.type='button';btn.className='fold-c';
+    btn.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+    hd.classList.add('fold-h');hd.insertBefore(btn,hd.firstChild);
+    c.dataset.fold=key;
+    let col=(S.fold||{})[key];if(col===undefined)col=isQa;
+    if(isQa&&(listening||VD||bulk))col=false;
+    foldSet(c,col);
+  });
+}
+function foldSet(c,col){
+  c.classList.toggle('folded',col);
+  const b=c.querySelector('.fold-c');
+  if(b){b.setAttribute('aria-expanded',String(!col));b.setAttribute('aria-label',col?'Развернуть':'Свернуть')}
+}
+document.addEventListener('click',e=>{
+  const h=e.target.closest('.fold-h');if(!h)return;
+  if(e.target.closest('button,a,input,select,textarea,label')&&!e.target.closest('.fold-c'))return;
+  const c=h.closest('section.card');if(!c||!c.dataset.fold)return;
+  const col=!c.classList.contains('folded');
+  S.fold=S.fold||{};S.fold[c.dataset.fold]=col;save();foldSet(c,col);
+});
 function render(){
   renderNav();
   $('#main').innerHTML={day:vDay,week:vWeek,sch:vSchedule,habits:vHabits,focus:vFocus,notes:vNotes,joy:vJoy,ai:vAI}[view]();
+  foldify();
   if(view==='day'){updatePreview();}
 }
 
@@ -1237,6 +1279,13 @@ document.addEventListener('click',e=>{
     case 'revgo':revGo();break;
     case 'revtodo':{const r=AV.rev;if(!r)break;r.steps.forEach(s=>S.tasks.push({id:uid(),title:'Доработать: '+s.slice(0,90),cat:'study',date:null,time:null,dur:20,prio:2,due:null,done:false}));save();toast('Шаги в копилке: '+r.steps.length);break}
     case 'fcgo':fcGo();break;
+    case 'ptgo':ptGo();break;
+    case 'ptoff':ptOffline();break;
+    case 'ptfdel':AV.pt.files.splice(+el.dataset.i,1);render();break;
+    case 'ptcopy':{const x=S.prompts.find(y=>y.id===id);if(x)copyText(x.text).then(()=>toast('Промт скопирован'));break}
+    case 'ptopen':{const x=S.prompts.find(y=>y.id===id);if(!x)break;AV.pt.cur=x.id;AV.pt.goal=x.goal||'';AV.pt.kind=x.kind||'text';ptShow();break}
+    case 'ptdel':{S.prompts=S.prompts.filter(y=>y.id!==id);if(AV.pt.cur===id)AV.pt.cur=null;save();render();toast('Промт удалён');break}
+    case 'ptclear':{if(!confirm('Удалить все сохранённые промты?'))break;S.prompts=[];AV.pt.cur=null;save();render();toast('История промтов очищена');break}
     case 'cmode':AV.mode=el.dataset.v;render();break;
     case 'cflip':AV.flip=!AV.flip;render();break;
     case 'cknow':AV.queue.shift();AV.kn++;AV.flip=false;render();break;
@@ -1451,11 +1500,54 @@ async function fcGo(){
   AV.busy=false;render();
 }
 function aiKeyBox(){return AV.err==='nokey'?`<div class="banner" style="flex-direction:column;align-items:stretch"><span>Нужен бесплатный ключ Google Gemini: aistudio.google.com/apikey. Он хранится только в этом браузере.</span><input type="password" id="ai-key2" autocomplete="off" placeholder="AIza…"><button class="btn sm primary" data-act="aikey2">Сохранить</button></div>`:AV.err?`<div class="banner">${esc(AV.err)}</div>`:''}
+const PT_KINDS=[['text','Текст или ответ'],['study','Учёба: объяснение или задание'],['slides','Презентация'],['img','Картинка'],['code','Код или таблица']];
+AV.pt={goal:'',kind:'text',extra:'',files:[],cur:null,busy:false};
+function ptMat(){let left=12000;const o=[];AV.pt.files.forEach(f=>{if(left<=0)return;const t=f.text.slice(0,Math.min(6000,left));left-=t.length;o.push('Файл «'+f.name+'»:\n'+t)});return o.join('\n\n')}
+function ptKindName(){return (PT_KINDS.find(x=>x[0]===AV.pt.kind)||PT_KINDS[0])[1]}
+function ptStore(title,text){const p=AV.pt,e={id:uid(),title:(title||p.goal).trim().slice(0,60),goal:p.goal,kind:p.kind,text:text,files:p.files.map(f=>f.name),at:Date.now()};S.prompts.unshift(e);S.prompts=S.prompts.slice(0,60);save();p.cur=e.id}
+function ptShow(){render();setTimeout(()=>{const o=$('#pt-out');if(o)o.scrollIntoView({behavior:'smooth',block:'center'})},60)}
+async function ptGo(){
+  const p=AV.pt;if(p.goal.trim().length<8){toast('Напиши, что нужно получить, хотя бы одной фразой');return}
+  const mat=ptMat();
+  const q='Ты опытный промт-инженер. Составь один сильный промт для нейросети, который можно сразу скопировать и вставить. Тип задачи: '+ptKindName()+'. Что хочет получить пользователь: """'+p.goal.trim().slice(0,3000)+'""".'+(p.extra.trim()?' Дополнительно: """'+p.extra.trim().slice(0,1500)+'""".':'')+(mat?' Материалы пользователя (бери из них факты, термины и стиль, чтобы промт был конкретным, но не копируй их целиком): """'+mat+'""".':'')+' В промте должны быть: роль, чёткая задача, контекст, требования и ограничения, формат ответа, критерии хорошего результата. Если данных мало, нейросеть сначала задаёт до трёх уточняющих вопросов. Пиши по-русски, без воды, не больше 350 слов. Верни только JSON: {"title":"название из 3-6 слов","prompt":"текст промта"}';
+  p.busy=true;AV.err='';render();
+  try{const r=await aiJ(q)||{};const t=String(r.prompt||'').trim();if(t.length<30)throw {code:'bad'};ptStore(String(r.title||''),t);p.busy=false;ptShow();return}
+  catch(e){AV.err=aiErr(e)}
+  p.busy=false;render();
+}
+function ptOffline(){
+  const p=AV.pt;if(p.goal.trim().length<8){toast('Напиши, что нужно получить, хотя бы одной фразой');return}
+  const names=p.files.map(f=>f.name);
+  const t='Роль: ты опытный помощник для задач типа «'+ptKindName()+'».\nЗадача: '+p.goal.trim()+'\n'+(p.extra.trim()?'Дополнительно: '+p.extra.trim()+'\n':'')+(names.length?'Материалы: '+names.join(', ')+'. Опирайся на них и не выдумывай факты.\n':'')+'Требования: пиши по-русски, конкретно и без воды, приводи примеры.\nФормат ответа: чёткая структура с короткими заголовками и пунктами.\nЕсли данных не хватает, сначала задай до трёх уточняющих вопросов, затем выполняй задачу.\nПеред ответом проверь: результат решает задачу и в нём нет лишнего.';
+  ptStore(p.goal,t);ptShow();
+}
+function copyText(t){return (navigator.clipboard&&navigator.clipboard.writeText?navigator.clipboard.writeText(t):Promise.reject()).catch(()=>{const a=document.createElement('textarea');a.value=t;a.style.cssText='position:fixed;opacity:0';document.body.appendChild(a);a.select();try{document.execCommand('copy')}catch(e){}a.remove()})}
+function vPrompt(){
+  const p=AV.pt,cur=S.prompts.find(x=>x.id===p.cur);
+  const form=`<section class="card stack" style="gap:12px;margin-top:12px">
+    <label>Что нужно получить?<textarea id="pt-goal" style="min-height:110px" placeholder="Например: объяснить 8-класснику виды связи в словосочетании с примерами и мини-тестом" aria-label="Что нужно получить">${esc(p.goal)}</textarea></label>
+    <label>Для чего промт<select id="pt-kind">${PT_KINDS.map(k=>`<option value="${k[0]}" ${p.kind===k[0]?'selected':''}>${k[1]}</option>`).join('')}</select></label>
+    <label>Дополнительно (необязательно)<textarea id="pt-extra" style="min-height:70px" placeholder="Аудитория, объём, стиль, чего избегать" aria-label="Дополнительно">${esc(p.extra)}</textarea></label>
+    <label style="font-size:13px" class="muted">Прикрепить файлы: PDF, Word (.docx), .txt, .md. Можно несколько<input type="file" id="pt-file" multiple accept=".pdf,.docx,.txt,.md,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown"></label>
+    ${p.files.length?`<div class="stack" style="gap:6px">${p.files.map((f,i)=>`<div class="li"><span>📎 ${esc(f.name)} <span class="muted">· ${f.text.length} зн.</span></span><button class="xdel" data-act="ptfdel" data-i="${i}" aria-label="Убрать файл">×</button></div>`).join('')}</div>`:''}
+    <button class="btn primary" data-act="ptgo" ${p.busy?'disabled':''}>${p.busy?'Составляю промт…':'Составить промт'}</button>
+    <button class="btn ghost" data-act="ptoff" ${p.busy?'disabled':''}>Собрать по шаблону, без ИИ</button></section>`;
+  const res=cur?`<section class="card stack" style="gap:10px;margin-top:12px"><div class="eyebrow">Готовый промт</div><b style="font-size:17px">${esc(cur.title)}</b>
+    <textarea id="pt-out" data-id="${cur.id}" style="min-height:240px" aria-label="Текст промта">${esc(cur.text)}</textarea>
+    <div class="row" style="gap:8px"><button class="btn primary" data-act="ptcopy" data-id="${cur.id}">Копировать</button><button class="btn" data-act="ptdel" data-id="${cur.id}">Удалить</button></div>
+    <div class="muted" style="font-size:12px">Промт сохранён в истории ниже. Твои правки в тексте тоже сохраняются.</div></section>`:'';
+  const hist=S.prompts.length?`<section class="card" style="margin-top:12px"><div class="row"><h3 class="grow" style="font-size:18px">Сохранённые промты</h3><span class="muted">${S.prompts.length}</span></div>
+    <div class="stack" style="gap:8px;margin-top:10px">${S.prompts.map(x=>`<div style="padding:10px 12px;border-radius:14px;background:var(--surface2)${x.id===p.cur?';outline:2px solid var(--accent)':''}"><b>${esc(x.title)}</b><div class="muted" style="font-size:12px">${new Date(x.at).toLocaleDateString('ru-RU',{day:'numeric',month:'long'})}${x.files&&x.files.length?' · 📎 '+x.files.length:''}</div>
+      <div class="row" style="gap:6px;margin-top:8px"><button class="btn sm" data-act="ptopen" data-id="${x.id}">Открыть</button><button class="btn sm" data-act="ptcopy" data-id="${x.id}">Копировать</button><button class="btn sm ghost" data-act="ptdel" data-id="${x.id}">Удалить</button></div></div>`).join('')}</div>
+    <button class="btn sm ghost" style="margin-top:12px" data-act="ptclear">Удалить все</button></section>`:'';
+  return form+res+hist;
+}
 function vAI(){
-  const rv=AV.tab==='rev';
-  return `<div class="head"><div><div class="eyebrow">ИИ для учёбы</div><h1>${rv?'Проверка перед сдачей':'Конспект в карточки'}</h1><p>${rv?'Загрузи текст реферата или план презентации. Найду слабые места и подскажу, что поправить.':'Загрузи конспект, и я сделаю карточки и мини-тест для быстрого повторения.'}</p></div></div>
-  <div class="row" style="gap:8px;margin:12px 0"><button class="btn ${rv?'primary':''}" data-act="aitab" data-v="rev">Рецензент</button><button class="btn ${rv?'':'primary'}" data-act="aitab" data-v="cards">Карточки и тест</button></div>
-  ${aiKeyBox()}${rv?vRev():vCards()}`;
+  const T={rev:['Проверка перед сдачей','Загрузи текст реферата или план презентации. Найду слабые места и подскажу, что поправить.'],cards:['Конспект в карточки','Загрузи конспект, и я сделаю карточки и мини-тест для быстрого повторения.'],prompt:['Составитель промтов','Опиши, что нужно получить, при желании прикрепи файлы. Соберу готовый промт и сохраню его в истории.']}[AV.tab]||[];
+  const tb=(k,n)=>`<button class="btn ${AV.tab===k?'primary':''}" data-act="aitab" data-v="${k}">${n}</button>`;
+  return `<div class="head"><div><div class="eyebrow">ИИ для учёбы</div><h1>${T[0]}</h1><p>${T[1]}</p></div></div>
+  <div class="row" style="gap:8px;margin:12px 0">${tb('rev','Рецензент')}${tb('cards','Карточки и тест')}${tb('prompt','Промты')}</div>
+  ${aiKeyBox()}${AV.tab==='rev'?vRev():AV.tab==='cards'?vCards():vPrompt()}`;
 }
 function fileBox(){return `<label style="font-size:13px" class="muted">Или файл: PDF, Word (.docx), .txt, .md<input type="file" id="ai-file" accept=".pdf,.docx,.txt,.md,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown"></label>`}
 function vRev(){
@@ -1497,6 +1589,11 @@ document.addEventListener('change',async e=>{if(e.target.id!=='ai-file')return;c
   try{const x=(await readDoc(f)).trim();if(x.length<20){toast('Текста в файле не нашла. Если это скан, вставь текст вручную');return}
     if(AV.tab==='rev')AV.rt=x;else AV.ft=x;render();toast(x.length>12000?'Файл прочитан. Для проверки возьму первые 12 000 символов':'Файл прочитан: '+x.length+' символов')}
   catch(err){toast(err&&err.code==='fmt'?'Читаю PDF, DOCX, TXT и MD. Старый .doc сохрани как .docx':'Не получилось открыть файл. Попробуй вставить текст вручную')}});
+document.addEventListener('input',e=>{const i=e.target.id,p=AV.pt;if(i==='pt-goal')p.goal=e.target.value;else if(i==='pt-extra')p.extra=e.target.value;else if(i==='pt-kind')p.kind=e.target.value;else if(i==='pt-out'){const x=S.prompts.find(y=>y.id===e.target.dataset.id);if(x){x.text=e.target.value;save()}}});
+document.addEventListener('change',async e=>{if(e.target.id!=='pt-file')return;const fs=[...e.target.files];if(!fs.length)return;toast('Читаю файлы…');let ok=0,bad=0;
+  for(const f of fs){try{const x=(await readDoc(f)).trim();if(x.length<20){bad++;continue}AV.pt.files.push({name:f.name,text:x});ok++}catch(err){bad++}}
+  AV.pt.files=AV.pt.files.slice(0,6);render();
+  toast(ok?'Прикреплено файлов: '+ok+(bad?'. Не удалось прочитать: '+bad:''):'Не получилось прочитать. Подойдут PDF, DOCX, TXT и MD')});
 render();
 if(!bat(todayS())&&S.batSkip!==todayS())openBat();
 petTick();setInterval(petTick,1000);
