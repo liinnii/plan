@@ -960,7 +960,7 @@ async function callAI(prompt){
     try{r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(model)+':generateContent',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':c.key},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{responseMimeType:'application/json',temperature:0.4}})})}
     catch(e){throw {code:'network'}}
     if(r.status===404){let m='';try{m=((await r.json()).error||{}).message||''}catch(e){}last={code:404,msg:m,model};continue}
-    if(!r.ok){let m='';try{m=((await r.json()).error||{}).message||''}catch(e){}if(r.status===503||r.status===500){last=busy={code:r.status,msg:m};continue}throw {code:r.status,msg:m}}
+    if(!r.ok){let m='';try{m=((await r.json()).error||{}).message||''}catch(e){}if(r.status===503||r.status===500||r.status===429){last=busy={code:r.status,msg:m};continue}throw {code:r.status,msg:m}}
     const j=await r.json(),t=(((j.candidates||[])[0]||{}).content||{}).parts;
     const txt=(t||[]).map(p=>p.text||'').join('').replace(/```json|```/g,'').trim();
     return JSON.parse(txt);
@@ -971,6 +971,11 @@ async function callAI(prompt){
   }
   throw last;
 }
+function offlineSteps(t){
+  const k=t.kind||'gen',mid={talk:['Набросай структуру речи: вступление, 3 блока, вывод','Напиши текст речи начерно','Сделай слайды: один слайд на блок, минимум текста','Прочитай речь вслух по слайдам и засеки время'],essay:['Сформулируй тезис и набросай план из трёх пунктов','Напиши основную часть начерно','Добавь вступление и вывод','Проверь источники и оформление'],lab:['Выпиши данные и формулы','Сделай расчёты','Оформи таблицы и графики','Напиши выводы по цели работы'],notes:['Пролистай материал и выдели основные темы','Выпиши ключевое по каждой теме','Добавь примеры или формулы','Перечитай конспект один раз']}[k]||['Выпиши, что именно нужно сделать, в 3 пунктах','Сделай самую простую часть','Сделай основную часть','Перечитай и поправь'];
+  const total=Math.max(30,t.dur||60),per=Math.max(10,Math.min(30,r5(total/(mid.length+1))));
+  return [{t:'Открой материалы и подготовь рабочее место',m:5}].concat(mid.map(x=>({t:x,m:per})),[{t:'Сохрани или отправь результат',m:5}]);
+}
 function aiPaint(){
   if(!AIS)return;const t=S.tasks.find(x=>x.id===AIS.id);if(!t){AIS=null;return}
   const c=aiCfg();let body,btns='';
@@ -980,7 +985,7 @@ function aiPaint(){
     <label>Модель<input type="text" id="ai-model" value="${esc(c.model||'gemini-flash-latest')}"></label>`;
     btns='<button class="btn primary" data-act="aikeysave">Сохранить и разбить</button>';
   }else if(AIS.busy)body='<div class="muted" role="status">Думаю, как сделать это не страшным…</div>';
-  else if(AIS.err){body=`<div class="muted">${esc(AIS.err)}</div>`;btns='<button class="btn" data-act="aicfg">Настройки ИИ</button>'}
+  else if(AIS.err){body=`<div class="muted">${esc(AIS.err)}</div>`;btns='<button class="btn" data-act="aioffline">Шаги без ИИ</button><button class="btn" data-act="aicfg">Настройки ИИ</button>'}
   else{body=`<div class="muted" style="font-size:13px">Снимай галочки с лишнего. Каждый шаг короткий, первый совсем маленький.</div><div class="stack" id="ais" style="gap:8px">${AIS.steps.map((x,i)=>`<label class="li" style="font-size:14px;color:var(--ink);font-weight:500;cursor:pointer"><span>${esc(x.t)} <span class="muted">· ${durLabel(x.m)}</span></span><input type="checkbox" data-i="${i}" checked style="width:22px;height:22px;flex:none"></label>`).join('')}</div>`;btns='<button class="btn primary" data-act="aisplitok">Добавить в план</button>'}
   $('#layer').innerHTML=`<div class="scrim" data-act="closeModal"><div class="modal" role="dialog" aria-modal="true"><div class="eyebrow">ИИ-помощник</div><h3 style="font-size:18px">${esc(t.title)}</h3>${body}<div class="row" style="justify-content:flex-end"><button class="btn" data-act="closeModal">Закрыть</button>${btns}</div></div></div>`;
 }
@@ -1000,7 +1005,7 @@ async function aiSplit(id){
   }catch(err){
     if(!AIS||AIS.id!==id)return;
     const c=err&&err.code;
-    AIS={id,err:c===429?'Лимит запросов исчерпан. Подожди минуту и попробуй снова.':c===400||c===403?'Google не принял ключ. Проверь ключ в настройках ИИ.':c===404?'Такой модели нет. Проверь название модели в настройках ИИ.':c==='network'?'Нет связи с сервисом ИИ. Проверь интернет.':'Не получилось получить ответ. Попробуй ещё раз.'};if(err&&err.msg)AIS.err+=' [v4, Google: '+err.code+' — '+String(err.msg).slice(0,200)+']';
+    AIS={id,err:c===429?'Лимит бесплатных запросов Google исчерпан (на минуту или на сегодня). Подожди минуту и попробуй снова; если не поможет, лимит обновится завтра. А пока можно взять шаги без ИИ.':c===400||c===403?'Google не принял ключ. Проверь ключ в настройках ИИ.':c===404?'Такой модели нет. Проверь название модели в настройках ИИ.':c==='network'?'Нет связи с сервисом ИИ. Проверь интернет.':'Не получилось получить ответ. Попробуй ещё раз.'};if(err&&err.msg)AIS.err+=' [v5, Google: '+err.code+' — '+String(err.msg).slice(0,200)+']';
   }
   aiPaint();
 }
@@ -1248,6 +1253,7 @@ document.addEventListener('click',e=>{
     case 'aisplit':aiSplit(id);break;
     case 'aicfg':if(AIS){AIS={id:AIS.id,setup:true};aiPaint()}break;
     case 'aikeysave':{const k=($('#ai-key').value||'').trim();if(!k){toast('Вставь ключ');break}try{localStorage.setItem(AIK,JSON.stringify({key:k,model:($('#ai-model').value||'').trim()||'gemini-flash-latest'}))}catch(x){toast('Не удалось сохранить ключ в браузере');break}const i=AIS&&AIS.id;if(i)aiSplit(i);break}
+    case 'aioffline':{const t0=AIS&&S.tasks.find(x=>x.id===AIS.id);if(t0){AIS={id:t0.id,steps:offlineSteps(t0)};aiPaint()}break}
     case 'aisplitok':{const t=AIS&&S.tasks.find(x=>x.id===AIS.id);if(!t)break;
       const pick=[...document.querySelectorAll('#ais input:checked')].map(x=>AIS.steps[+x.dataset.i]).filter(Boolean);
       if(!pick.length){toast('Выбери хотя бы один шаг');break}
