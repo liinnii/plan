@@ -826,22 +826,26 @@ function vDay(){
       <div class="stack" style="gap:6px;margin-top:10px">${S.habits.map(h=>{const on=(S.hlog[sel]||[]).includes(h.id);return `<button class="task ${on?'done':''}" style="grid-template-columns:auto 1fr;text-align:left" data-act="habit" data-id="${h.id}"><span class="check">${IC.ok}</span><span class="tt">${esc(h.name)}</span></button>`}).join('')||'<div class="empty">Добавь привычки на странице «Привычки».</div>'}</div></section>
   </div></div>`;
 }
+function pairInfo(d){const p=schBlocks(d).find(b=>b.k==='pair');if(!p)return null;
+  const ls=(p.l||[]).filter(x=>x.a&&x.b&&toM(x.b)>toM(x.a)),m=ls.length?ls.reduce((s,x)=>s+toM(x.b)-toM(x.a),0):p.b-p.a;
+  return {m,a:p.a,b:p.b,n:ls.length}}
 function vWeek(){
   const days=[...Array(7)].map((_,i)=>addDays(weekStart,i));
   const inbox=S.tasks.filter(t=>!t.date&&!t.done);
   const a=parseD(days[0]),b=parseD(days[6]);
-  return `<div class="head"><div><div class="eyebrow">Неделя</div><h1>${a.getDate()} ${MON[a.getMonth()]} — ${b.getDate()} ${MON[b.getMonth()]}</h1><p>Полоска показывает загрузку дня. Розовая значит день плотный, лучше разгрузить.</p></div>
+  return `<div class="head"><div><div class="eyebrow">Неделя</div><h1>${a.getDate()} ${MON[a.getMonth()]} — ${b.getDate()} ${MON[b.getMonth()]}</h1><p>Полоска показывает загрузку дня вместе с парами. Розовая значит день плотный, лучше разгрузить.</p></div>
     <div class="dayswitch"><button data-act="wk" data-n="-1" aria-label="Прошлая неделя">‹</button><button class="today" data-act="wk" data-n="0">Эта неделя</button><button data-act="wk" data-n="1" aria-label="Следующая неделя">›</button></div></div>
   <div class="week">${days.map(d=>{
-    const l=dayTasks(d),open=l.filter(t=>!t.done),mins=open.reduce((s,t)=>s+t.dur,0),pct=Math.min(100,mins/480*100);
+    const l=dayTasks(d),open=l.filter(t=>!t.done),pi=pairInfo(d),pm=pi?pi.m:0,mins=open.reduce((s,t)=>s+t.dur,0)+pm,pct=Math.min(100,mins/480*100);
     const col=mins>480?'var(--bad)':mins>360?'var(--warn)':'var(--good)';
     const show=l.sort((x,y)=>(x.time||'99')<(y.time||'99')?-1:1);
     return `<article class="day ${d===todayS()?'is-today':''}"><header><button data-act="openday" data-d="${d}">${WD[parseD(d).getDay()]}, ${parseD(d).getDate()}</button><span class="muted" style="font-size:12px">${mins?durLabel(mins):'свободно'}</span></header>
       <div class="bar"><i style="width:${pct}%;background:${col}"></i></div>
+      ${pi?`<button class="mini" data-act="nav" data-v="sch" style="text-align:left;background:var(--soft)"><b style="font-variant-numeric:tabular-nums;color:var(--muted)">${fromM(pi.a)}–${fromM(pi.b)}</b><span>Пары${pi.n?' ('+pi.n+')':''} · ${durLabel(pm)}</span></button>`:''}
       ${show.slice(0,5).map(t=>`<button class="mini ${t.done?'done':''}" data-act="edit" data-id="${t.id}" style="text-align:left"><b style="font-variant-numeric:tabular-nums;color:var(--muted)">${t.time?t.time+'–'+endT(t):'··'}</b><span>${esc(t.title)}</span></button>`).join('')}
       ${show.length>5?`<span class="muted" style="font-size:12px">и ещё ${show.length-5}</span>`:''}
       ${S.tasks.filter(t=>t.due===d&&!t.done).map(t=>`<button class="mini" data-act="edit" data-id="${t.id}" style="text-align:left;background:#FFF0D6;color:#8A5A00"><b>⚑</b><span>срок: ${esc(t.title)}</span></button>`).join('')}
-      ${!show.length&&!S.tasks.some(t=>t.due===d&&!t.done)?'<span class="muted" style="font-size:13px">Пока ничего</span>':''}</article>`}).join('')}</div>
+      ${!show.length&&!pi&&!S.tasks.some(t=>t.due===d&&!t.done)?'<span class="muted" style="font-size:13px">Пока ничего</span>':''}</article>`}).join('')}</div>
   ${(()=>{const wk=days.flatMap(dayTasks),tot=wk.reduce((x,t)=>x+t.dur,0),rs=wk.filter(t=>t.cat==='rest').reduce((x,t)=>x+t.dur,0),pc=tot?Math.round(rs/tot*100):0;
     return `<section class="card" style="margin-top:20px"><div class="eyebrow">Баланс недели</div><div class="row" style="margin:10px 0"><div class="bar grow" style="height:12px"><i style="width:${pc}%;background:var(--c-rest)"></i></div><b>${pc}% отдыха</b></div>
     <div class="muted">${tot<300?'Пока планов немного.':pc<15?'Отдыха в неделе мало. Поставь пару приятных дел: прогулку, друзей, сон.':'Хороший баланс. Так проще не выгореть.'}</div></section>`})()}
