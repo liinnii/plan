@@ -148,6 +148,20 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
 .energy button{flex:1;padding:9px 6px;border-radius:14px;background:var(--surface2);font-size:13px;font-weight:600;border:1.5px solid transparent}
 .energy button[aria-pressed="true"]{border-color:var(--accent2);background:var(--soft2)}
 
+/* pet */
+.pet{display:flex;gap:14px;align-items:center}
+.pface{font-size:46px;line-height:1;width:72px;height:72px;border-radius:50%;display:grid;place-items:center;background:var(--soft);flex:none}
+.pet.hot .pface{background:#FFF0D6}
+.ptime{font-family:var(--font-d);font-size:26px;font-variant-numeric:tabular-nums}
+.pbar{height:8px;border-radius:99px;background:var(--soft);overflow:hidden;margin:10px 0}
+.pbar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#B79BFF,#E5A23B)}
+/* battery */
+.bat{display:grid;grid-template-columns:repeat(10,1fr);gap:4px}
+.bat button{height:38px;border-radius:10px;background:var(--surface2);border:1.5px solid var(--line);font-weight:700;font-size:12px;color:var(--muted);transition:background .2s}
+.bat button.on{background:var(--bc);border-color:var(--bc);color:#fff}
+.bat button[aria-pressed="true"]{outline:2px solid var(--ink);outline-offset:1px}
+@media (max-width:420px){.bat{grid-template-columns:repeat(5,1fr)}.bat button{height:44px;font-size:14px}}
+
 /* week */
 .week{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px}
 .day{padding:16px;border-radius:22px;background:var(--surface);box-shadow:var(--shadow);display:flex;flex-direction:column;gap:8px;min-width:0}
@@ -174,6 +188,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
 .tring div{position:absolute;inset:0;display:grid;place-content:center;text-align:center}
 .tring b{font-family:var(--font-d);font-size:clamp(38px,12vw,54px);font-variant-numeric:tabular-nums;font-weight:500}
 
+.qc[aria-pressed="true"]{background:var(--soft);border-color:var(--accent);color:var(--accent)}
 /* notes */
 .note{padding:14px;border-radius:18px;background:var(--surface2);display:flex;flex-direction:column;gap:10px;overflow-wrap:anywhere;white-space:pre-wrap}
 .notes{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-top:14px}
@@ -186,6 +201,14 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
 .toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:999px;z-index:60;font-weight:600;max-width:calc(100vw - 32px);text-align:center;box-shadow:var(--shadow)}
 @media (min-width:861px){.toast{bottom:28px}}
 .fade{animation:fade .35s ease both}
+.gg{display:grid;gap:10px;max-width:420px;margin:14px auto 0}
+.gc{aspect-ratio:1;border-radius:18px;background:linear-gradient(135deg,var(--accent2),var(--accent));color:#fff;font-size:26px;font-weight:700;display:grid;place-items:center;box-shadow:0 6px 14px rgba(110,77,242,.2);transition:transform .25s,background .25s;min-width:0}
+.gc:active{transform:scale(.94)}
+.gc.open{background:var(--surface);color:var(--ink);border:2px solid var(--accent);font-size:clamp(28px,8vw,40px);transform:rotateY(0)}
+.gc.ok{background:var(--soft);color:var(--ink);border:2px solid var(--good);font-size:clamp(28px,8vw,40px);box-shadow:none}
+.gc.pop{animation:pop .5s ease}
+@keyframes pop{50%{transform:scale(1.12)}}
+.lv{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:14px}
 @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 @media (max-width:560px){
   .task{grid-template-columns:auto minmax(0,1fr)}
@@ -233,7 +256,7 @@ const longDate=s=>{const d=parseD(s);return WDL[d.getDay()]+', '+d.getDate()+' '
 const shortDate=s=>{const d=parseD(s);return d.getDate()+' '+MON[d.getMonth()]};
 const dueIn=s=>Math.round((parseD(s)-parseD(todayS()))/864e5);
 function dueInfo(t){if(!t.due)return null;const n=dueIn(t.due);
-  return {n,cls:n<0?'duebad':n<=1?'warnchip':'duecalm',txt:n<0?'срок прошёл '+(-n)+' дн. назад':n===0?'срок сегодня':n===1?'срок завтра':'до '+shortDate(t.due)+' · '+n+' дн.'}}
+  return {n,cls:n<0?'duecalm':n<=1?'warnchip':'duecalm',txt:n<0?'срок был '+shortDate(t.due):n===0?'срок сегодня':n===1?'срок завтра':'до '+shortDate(t.due)+' · '+n+' дн.'}}
 const dueChip=t=>{const i=!t.done&&dueInfo(t);return i?`<span class="chip ${i.cls}">⚑ ${i.txt}</span>`:''};
 const TK=a=>a.map(([l,t])=>`<button class="qc" data-act="tok" data-t="${t}">${l}</button>`).join('');
 function dueBanner(){const u=S.tasks.filter(t=>t.due&&!t.done&&dueIn(t.due)<=2).sort((a,b)=>a.due<b.due?-1:1).slice(0,3);
@@ -291,9 +314,9 @@ function seed(){
     tpl:[{id:uid(),text:'Подготовить урок 60м #репетиторство'},{id:uid(),text:'Учёба 1ч #учёба'},{id:uid(),text:'Уборка 30м #дом'},{id:uid(),text:'Прогулка 30м #отдых'}]
   };
 }
-S=load()||seed(); if(!S.tpl)S.tpl=seed().tpl; let flt='all', tagColor='#7A5AF8', lastDel=null, qOpen=false, bulk=false, showRest=false, skipN=0; if(S.soft===undefined)S.soft=true; if(!S.heavy)S.heavy={};
-if(!S.why)S.why=[]; if(!S.doneDays)S.doneDays={}; if(S.wins===undefined)S.wins=S.tasks.filter(t=>t.done).length;
-if(!S.reward)S.reward={text:'',goal:10}; if(!S.hist)S.hist=[];
+S=load()||seed(); if(!S.tpl)S.tpl=seed().tpl; let flt='all', tagColor='#7A5AF8', lastDel=null, qOpen=false, bulk=false, showRest=false, skipN=0; if(S.soft===undefined)S.soft=true; if(!S.heavy)S.heavy={}; if(!S.battery)S.battery={}; if(!S.pet)S.pet={mode:null,start:0,len:0,base:0,points:0,locked:0,warned:false};
+if(!S.why)S.why=[];if(!S.winLog)S.winLog={};if(!S.lazy)S.lazy={min:0,credit:0};if(!S.duck)S.duck=[];if(S.draft===undefined)S.draft='';if(!S.care)S.care=[]; if(!S.doneDays)S.doneDays={}; if(S.wins===undefined)S.wins=S.tasks.filter(t=>t.done).length;
+if(!S.reward)S.reward={text:'',goal:10}; if(!S.game)S.game={best:{}}; if(!S.hist)S.hist=[];
 if(!S.joy)S.joy=['Любимый плейлист и чай','Позвонить подруге','Тёплый душ и пижама','Посмотреть серию с вкусняшкой'].map(t=>({id:uid(),text:t}));
 if(!S.events)S.events=[{id:uid(),name:'Новый год',date:(new Date().getFullYear()+1)+'-01-01'}];
 if(!S.cleaned){S.tasks=S.tasks.filter(t=>!t.example);S.cleaned=true}
@@ -392,6 +415,36 @@ const dayTasks=d=>S.tasks.filter(t=>t.date===d);
 const byTime=(a,b)=>toM(a.time)-toM(b.time);
 const catChip=k=>{const c=CATS[k]||CATS.work;return `<span class="chip" style="color:${c.c}"><span class="dot"></span>${esc(c.n)}</span>`};
 const mood=d=>S.mood[d]||{};
+const bat=d=>(S.battery&&S.battery[d])||0;
+const batColor=n=>n<=3?'#E5A23B':n<=6?'#9C7DFF':'#3FA882';
+const batText=n=>!n?'Выбери, сколько сил сейчас. От этого зависит, сколько дел я покажу.':n<=3?'Сил мало: оставила максимум два главных дела, остальное спрятала.':n<=6?'Силы средние: идём обычным темпом, с паузами.':'Сил много: можно браться за самое важное и длинное.';
+function batUI(d){const n=bat(d);return `<div class="bat" role="group" aria-label="Уровень энергии от 1 до 10" style="--bc:${batColor(n)}">${[...Array(10)].map((_,i)=>`<button class="${i<n?'on':''}" data-act="bat" data-d="${d}" data-v="${i+1}" aria-pressed="${i+1===n}" aria-label="${i+1} из 10">${i+1}</button>`).join('')}</div><div class="muted" style="font-size:13px;margin-top:10px">${batText(n)}</div>`}
+const clock=s=>{s=Math.max(0,Math.floor(s));return pad(Math.floor(s/60))+':'+pad(s%60)};
+const petMin=()=>{const P=S.pet;return P.base+(P.mode==='study'?(Date.now()-P.start)/6e4:0)};
+const petLvl=m=>m>=120?3:m>=90?2:m>=60?1:0;
+const PETF=[['🌻','Бодрый','Силы на месте, можно учиться.'],['🌿','Немного устал','Скоро пригодится пауза.'],['🥀','Жарковато','Лучше передохнуть в ближайшее время.'],['🥵','Перегрев','Очки за дела заморожены. Запусти отдых 15–30 минут, и они вернутся.']];
+function petPts(n){const P=S.pet;if(n>0){if(petMin()>=120)P.locked+=n;else P.points+=n}else{let k=-n;const a=Math.min(k,P.locked);P.locked-=a;P.points=Math.max(0,P.points-(k-a))}}
+function petInner(){const P=S.pet,m=petMin(),l=petLvl(m),f=PETF[l];let b;
+  if(P.mode==='rest')b=`<div class="ptime" id="ptime">${clock(P.len*60-(Date.now()-P.start)/1e3)}</div><div class="muted" style="font-size:13px">Отдых идёт. Просто побудь без дел.</div><button class="btn sm ghost" style="margin-top:8px" data-act="prestx">Отменить отдых</button>`;
+  else if(P.mode==='study')b=`<div class="ptime" id="ptime">${clock((Date.now()-P.start)/1e3)}</div><div class="muted" style="font-size:13px">Без перерыва: <span id="pmin">${Math.round(m)}</span> из 120 мин</div><button class="btn sm" style="margin-top:8px" data-act="pstop">Остановить учёбу</button>`;
+  else b=`<div class="muted" style="font-size:13px">Без перерыва: ${Math.round(m)} из 120 мин</div><button class="btn primary sm" style="margin-top:8px" data-act="pstudy">Начать учёбу</button>`;
+  const rb=P.mode!=='rest'?`<div class="row" style="margin-top:10px;gap:6px"><span class="muted" style="font-size:13px">Отдых:</span>${[15,20,30].map(x=>`<button class="btn sm ghost" data-act="prest" data-m="${x}">${x} мин</button>`).join('')}</div>`:'';
+  return `<div class="eyebrow" style="margin-bottom:10px">Мой росток · баланс</div><div class="pet ${l===3?'hot':''}"><div class="pface" aria-hidden="true">${P.mode==='rest'?'😌':f[0]}</div><div class="grow"><b>${P.mode==='rest'?'Отдыхает':f[1]}</b><div class="muted" style="font-size:13px">${P.mode==='rest'?'Скоро снова будет бодрым.':f[2]}</div></div></div><div class="pbar"><i style="width:${Math.min(100,m/1.2)}%"></i></div>${b}${rb}<div class="row" style="margin-top:12px"><span class="chip">⭐ ${P.points}</span>${P.locked?`<span class="chip warnchip">+${P.locked} ждут отдыха</span>`:''}</div>`}
+function vPet(){return `<section class="card" id="petcard">${petInner()}</section>`}
+let petKey='';
+function petTick(){const P=S.pet,now=Date.now();apTick();mtTick();
+  if(P.mode==='rest'&&now-P.start>=P.len*6e4){const g=P.locked;P.mode=null;P.base=0;P.points+=g;P.locked=0;P.warned=false;save();beep();toast(g?'Росток отдохнул. Очки вернулись: +'+g:'Росток отдохнул и снова бодр');render();return}
+  const m=petMin();if(P.mode==='study'&&m>=120&&!P.warned){P.warned=true;save();beep();toast('Росток перегрелся. Нужен отдых 15–30 минут')}
+  const el=$('#petcard');if(!el)return;const k=P.mode+petLvl(m);
+  if(k!==petKey){petKey=k;el.innerHTML=petInner();return}
+  const t=$('#ptime');if(t)t.textContent=P.mode==='rest'?clock(P.len*60-(now-P.start)/1e3):clock((now-P.start)/1e3);const pm=$('#pmin');if(pm)pm.textContent=Math.round(m)}
+function openBat(){
+  $('#layer').innerHTML=`<div class="scrim" data-act="batskip"><div class="modal" role="dialog" aria-modal="true" aria-label="Уровень энергии">
+    <div class="eyebrow">${greet()}</div><h3 style="font-size:20px">Сколько у тебя сил сегодня?</h3>
+    <div class="muted" style="font-size:14px">От 1 (почти нет) до 10 (полна энергии). Если мало, покажу только главное.</div>
+    ${batUI(todayS())}
+    <div class="row" style="justify-content:flex-end"><button class="btn ghost" data-act="batskip">Позже</button></div></div></div>`;
+}
 function overlapIds(d){
   const t=dayTasks(d).filter(x=>x.time&&!x.done).sort(byTime),ids=new Set();
   for(let i=0;i<t.length-1;i++){if(toM(t[i].time)+t[i].dur>toM(t[i+1].time)){ids.add(t[i].id);ids.add(t[i+1].id)}}
@@ -609,11 +662,11 @@ function taskRow(t,opts={}){
   return `<div class="task ${t.done?'done':''} prio${t.prio} fade">
     <button class="check" data-act="toggle" data-id="${t.id}" aria-label="Отметить выполненным">${IC.ok}</button>
     <button data-act="edit" data-id="${t.id}" style="min-width:0;display:flex;gap:12px;align-items:flex-start;text-align:left">
-      <span class="time">${t.time||'—'}</span>
+      <span class="time">${t.time?t.time+'<br><span style="font-weight:500;font-size:12px">до '+endT(t)+'</span>':'—'}</span>
       <span style="min-width:0"><span class="tt">${esc(t.title)}</span>
-      <span class="meta">${catChip(t.cat)}<span class="chip">${durLabel(t.dur)}</span>${dueChip(t)}${t.prio===3?'<span class="chip" style="color:var(--accent)">важно</span>':''}${ov?'<span class="chip warnchip">пересекается</span>':''}${t.example?'<span class="chip muted">пример</span>':''}</span></span>
+      <span class="meta">${catChip(t.cat)}<span class="chip">${durLabel(t.dur)}</span>${t.rep?`<span class="chip">↻ ${t.rep.i}/${t.rep.n}</span>`:''}${dueChip(t)}${t.prio===3?'<span class="chip" style="color:var(--accent)">важно</span>':''}${ov?'<span class="chip warnchip">пересекается</span>':''}${t.example?'<span class="chip muted">пример</span>':''}</span></span>
     </button>
-    <div class="tact">${!t.done&&!t.time&&!t.example?`<button class="btn sm ghost" data-act="when" data-id="${t.id}">Когда?</button>`:''}<button class="btn sm ghost" data-act="focusTask" data-id="${t.id}" aria-label="Запустить фокус">Фокус</button><button class="xdel" data-act="del" data-id="${t.id}" aria-label="Удалить дело">×</button></div>
+    <div class="tact">${!t.done&&!t.time&&!t.example?`<button class="btn sm ghost" data-act="when" data-id="${t.id}">Когда?</button>`:''}${!t.done&&!t.example?`<button class="btn sm ghost" data-act="apstart" data-id="${t.id}">5 мин: доделать</button>`:''}<button class="btn sm ghost" data-act="focusTask" data-id="${t.id}" aria-label="Запустить фокус">Фокус</button><button class="xdel" data-act="del" data-id="${t.id}" aria-label="Удалить дело">×</button></div>
   </div>`;
 }
 function vDay(){
@@ -628,10 +681,13 @@ function vDay(){
   const heavy=!!S.heavy[sel], soft=S.soft!==false;
   const fm=t=>flt==='all'||t.cat===flt;
   const doneShown=done.filter(fm);
-  const timedOpen=open.filter(t=>t.time&&fm(t)).sort(byTime);
+  let timedOpen=open.filter(t=>t.time&&fm(t)).sort(byTime);
   let unOpen=open.filter(t=>!t.time&&fm(t)).sort(heavy?((a,b)=>a.dur-b.dur):((a,b)=>b.prio-a.prio||a.dur-b.dur));
   const K=heavy?1:Math.max(1,3-timedOpen.length);
-  const shownUn=(soft||heavy)?unOpen.slice(0,K):unOpen, hiddenUn=(soft||heavy)?unOpen.slice(K):[];
+  let shownUn=(soft||heavy)?unOpen.slice(0,K):unOpen, hiddenUn=(soft||heavy)?unOpen.slice(K):[];
+  const lowBat=bat(sel)>0&&bat(sel)<=3;
+  if(lowBat){const all=[...timedOpen,...unOpen].sort((a,b)=>b.prio-a.prio||(a.time?0:1)-(b.time?0:1)),keep=new Set(all.slice(0,heavy?1:2).map(t=>t.id));
+    hiddenUn=all.filter(t=>!keep.has(t.id));timedOpen=timedOpen.filter(t=>keep.has(t.id));shownUn=unOpen.filter(t=>keep.has(t.id))}
   const hasRest=list.some(t=>t.cat==='rest');
   const tr=[...Array(7)].map((_,i)=>mood(addDays(todayS(),i-6)).mood||0);
   const rec=tr.filter(Boolean);const lowRun=rec.length>=3&&rec.slice(-3).every(v=>v<=2);
@@ -650,6 +706,7 @@ function vDay(){
       <div class="qg"><span class="lbl">Срок до</span>${TK([['Завтра','до завтра'],['Пятницы','до пт'],['Конца недели','до конца недели'],['Конца месяца','до конца месяца']])}<input type="date" id="qa-due" class="qd" min="${todayS()}" aria-label="Выбрать срок сдачи"></div>
       <div class="qg"><span class="lbl">Во сколько</span>${[['Утром','10:00'],['Днём','14:00'],['Вечером','18:00']].map(([l,t])=>`<button class="qc" data-act="tok" data-t="${t}">${l}</button>`).join('')}<input type="time" id="qa-time" class="qd" aria-label="Точное время"></div>
       <div class="qg"><span class="lbl">Сколько</span>${['15м','30м','1ч','2ч'].map(t=>`<button class="qc" data-act="tok" data-t="${t}">${t.replace('м',' мин').replace('ч',' ч')}</button>`).join('')}<button class="qc" data-act="tok" data-t="!">Важно</button></div>
+      <div class="qg"><span class="lbl">Повтор</span>${[['Один раз',''],['Каждый день','day'],['Через день','alt'],['По будням','wd'],['Раз в неделю','week']].map(([l,v])=>`<button class="qc" data-act="qrep" data-s="${v}" aria-pressed="${QR.s===v}">${l}</button>`).join('')}<input type="number" id="qa-n" class="qd" min="2" max="30" value="5" style="width:64px" aria-label="Сколько раз всего"><span class="muted" style="font-size:12px">раз всего</span></div>
       <div class="qg"><span class="lbl">Тег</span><div class="cats" id="cats">${Object.keys(CATS).map(k=>`<button data-act="cat" data-k="${k}" aria-pressed="${curCat===k}" style="color:${CATS[k].c}">${esc(CATS[k].n)}</button>`).join('')}<button data-act="tagmodal" aria-pressed="false" style="color:var(--accent)">+ Новый тег</button></div></div>
       <div class="row" style="margin-top:10px"><button class="btn sm ghost" data-act="qmore">${qOpen?'Меньше вариантов':'Частые дела и отдых'}</button></div>
       ${qOpen?`<div class="qg"><span class="lbl">Частые</span>${S.tpl.map(x=>`<span class="qc tpl"><button data-act="tpl" data-id="${x.id}">${esc(x.text.replace(/\s+\d+(м|ч)(\s|$)/,' ').replace(/#\S+/,'').trim())}</button><button class="x" data-act="tpldel" data-id="${x.id}" aria-label="Убрать из частых">×</button></span>`).join('')||'<span class="muted" style="font-size:13px">Пока нет. Добавь через «В частые».</span>'}</div>
@@ -666,8 +723,9 @@ function vDay(){
         <button class="btn sm primary" data-act="plan">Разложить день</button></div>
       ${(()=>{const pr=[...new Set(list.map(t=>t.cat))];if(flt!=='all'&&!pr.includes(flt)&&CATS[flt])pr.push(flt);
         return (pr.length>1||flt!=='all')?`<div class="cats" style="margin-top:12px"><button data-act="flt" data-k="all" aria-pressed="${flt==='all'}">Все</button>${pr.filter(k=>CATS[k]).map(k=>`<button data-act="flt" data-k="${k}" aria-pressed="${flt===k}" style="color:${CATS[k].c}">${esc(CATS[k].n)}</button>`).join('')}<button data-act="tagmodal" aria-pressed="false" style="color:var(--accent)">+ Тег</button></div>`:''})()}
-      ${od.length&&isT?`<div class="banner"><span>Со вчера осталось дел: ${od.length}. Это нормально, ничего страшного.</span><button class="btn sm" data-act="rollover">На сегодня</button><button class="btn sm ghost" data-act="release">В копилку</button></div>`:''}
+      ${od.length&&isT?`<div class="banner"><span>Со вчера осталось дел: ${od.length}. Это нормально, ничего страшного.</span><button class="btn sm primary" data-act="carestart">Перенести с заботой</button><button class="btn sm" data-act="rollover">На сегодня</button><button class="btn sm ghost" data-act="release">В копилку</button></div>`:''}
       ${isT?dueBanner():''}
+      ${lowBat&&!heavy?'<div class="banner"><span>Энергия '+bat(sel)+' из 10: показываю только главное, максимум два дела.</span></div>':''}
       ${heavy?'<div class="banner"><span>Сегодня тяжело, и это нормально. Одно маленькое дело уже хороший день.</span></div>':''}
       ${(timedOpen.length||unOpen.length||doneShown.length)?`<div class="tl">
         ${timedOpen.map(t=>taskRow(t,{ov})).join('')}
@@ -683,6 +741,7 @@ function vDay(){
     ${vFree(fi,fp)}
   </div>
   <div class="stack">
+    ${vPet()}
     ${vDue()}
     <section class="card"><div class="ringbox"><div class="ring"><svg width="104" height="104" viewBox="0 0 104 104"><circle cx="52" cy="52" r="44" fill="none" stroke="var(--soft)" stroke-width="10"/><circle cx="52" cy="52" r="44" fill="none" stroke="url(#g)" stroke-width="10" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C*(1-pct/100)}" style="transition:stroke-dashoffset .6s"/><defs><linearGradient id="g"><stop offset="0" stop-color="var(--accent2)"/><stop offset="1" stop-color="var(--accent)"/></linearGradient></defs></svg><b>${pct}%</b></div>
       <div><div class="eyebrow">Прогресс</div><div style="font-weight:600;margin:2px 0">${done.length} из ${list.length} дел</div>
@@ -695,18 +754,23 @@ function vDay(){
       <div class="row" style="margin:10px 0 0;flex-wrap:nowrap"><div style="width:64px;flex:none">${gardenSvg(stg)}</div><div style="min-width:0"><b>${STAGES[stg][1]}</b><div class="muted" style="font-size:13px">${sd?'Дней подряд с делами: '+sd:'Одно дело, и серия начнётся'}</div></div></div>
       ${w?`<div class="banner"><span>Зачем это всё: «${esc(w)}»</span></div>`:'<button class="btn sm" style="margin-top:12px" data-act="nav" data-v="joy">Напиши, зачем тебе учёба</button>'}
       ${ev?`<div class="muted" style="font-size:13px;margin-top:10px">${esc(ev.name)}: ${ev.d===0?'сегодня!':ev.d===1?'завтра':'через '+ev.d+' дн.'}</div>`:''}
-      ${j?`<div class="banner"><span>Сегодня можно порадовать себя: ${esc(j)}</span></div>`:''}</section>`})()}
+      ${j?`<div class="banner"><span>Сегодня можно порадовать себя: ${esc(j)}</span></div>`:''}
+      <button class="btn sm" style="margin-top:12px;width:100%" data-act="nav" data-v="joy">🎮 Передохнуть: игра</button></section>`})()}
     <section class="card"><div class="eyebrow" style="margin-bottom:10px">Как ты сегодня?</div>
       <div class="moods">${['😞','😕','🙂','😊','🤩'].map((e,i)=>`<button data-act="mood" data-v="${i+1}" aria-pressed="${m.mood===i+1}" aria-label="Настроение ${i+1} из 5">${e}</button>`).join('')}</div>
-      <div class="eyebrow" style="margin:14px 0 8px">Сколько сил</div>
-      <div class="row energy">${[[1,'Мало'],[2,'Средне'],[3,'Много']].map(([v,n])=>`<button data-act="energy" data-v="${v}" aria-pressed="${m.energy===v}">${n}</button>`).join('')}</div>
-      <div class="muted" style="font-size:13px;margin-top:10px">${m.energy===1?'Сил мало: сначала короткие дела, большие не трогаю.':m.energy===3?'Много сил: самое важное и длинное ставлю раньше.':'От сил зависит, как я раскладываю день.'}</div></section>
+      <div class="eyebrow" style="margin:14px 0 8px">Батарейка · сколько сил</div>
+      ${batUI(sel)}</section>
     <section class="card"><div class="eyebrow" style="margin-bottom:10px">Береги себя</div>
       <div class="stack" style="gap:8px"><button class="btn ${heavy?'primary':''}" data-act="heavy">${heavy?'Тяжёлый день включён':'Мне сегодня тяжело'}</button>
       <button class="btn ${soft?'primary':'ghost'}" data-act="soft">${soft?'Лёгкий режим включён':'Включить лёгкий режим'}</button></div>
       <div class="muted" style="font-size:13px;margin-top:10px">Лёгкий режим показывает только главное, остальное прячется. Тяжёлый день оставляет одно самое маленькое дело.</div>
       <div class="mdots" title="Настроение за 7 дней">${tr.map(v=>`<i style="background:${mc[v]}"></i>`).join('')}</div>
       ${lowRun?'<div class="banner"><span>Несколько тяжёлых дней подряд. Попробуй сделать завтра выходным или добавить отдых.</span></div>':'<div class="muted" style="font-size:12px;margin-top:6px">Настроение за последние 7 дней</div>'}</section>
+    <section class="card"><div class="eyebrow">${isT&&new Date().getHours()>=18&&!S.winLog[sel]?'Вечер: подведём итог':'Маленькая победа дня'}</div>
+      <p class="muted" style="margin:6px 0 10px;font-size:13px">Одна вещь, за которую ты себя хвалишь сегодня. Даже самая маленькая.</p>
+      <input type="text" id="win-in" value="${esc(S.winLog[sel]||'')}" placeholder="Например: села за работу, хотя не хотелось" aria-label="Победа дня" maxlength="160">
+      <button class="btn sm primary" style="margin-top:10px" data-act="winsave">Записать</button>
+      ${(()=>{const p=Object.keys(S.winLog).filter(d=>d!==sel&&S.winLog[d]).sort().reverse().slice(0,3);return p.length?'<div class="stack" style="gap:6px;margin-top:12px">'+p.map(d=>`<div class="li"><span><span class="muted" style="font-size:12px">${shortDate(d)}</span><br>${esc(S.winLog[d])}</span></div>`).join('')+'</div>':''})()}</section>
     <section class="card"><div class="row"><h3 class="grow" style="font-size:16px">Привычки</h3><span class="muted">${hDone}/${hAll}</span></div>
       <div class="stack" style="gap:6px;margin-top:10px">${S.habits.map(h=>{const on=(S.hlog[sel]||[]).includes(h.id);return `<button class="task ${on?'done':''}" style="grid-template-columns:auto 1fr;text-align:left" data-act="habit" data-id="${h.id}"><span class="check">${IC.ok}</span><span class="tt">${esc(h.name)}</span></button>`}).join('')||'<div class="empty">Добавь привычки на странице «Привычки».</div>'}</div></section>
   </div></div>`;
@@ -723,7 +787,7 @@ function vWeek(){
     const show=l.sort((x,y)=>(x.time||'99')<(y.time||'99')?-1:1);
     return `<article class="day ${d===todayS()?'is-today':''}"><header><button data-act="openday" data-d="${d}">${WD[parseD(d).getDay()]}, ${parseD(d).getDate()}</button><span class="muted" style="font-size:12px">${mins?durLabel(mins):'свободно'}</span></header>
       <div class="bar"><i style="width:${pct}%;background:${col}"></i></div>
-      ${show.slice(0,5).map(t=>`<button class="mini ${t.done?'done':''}" data-act="edit" data-id="${t.id}" style="text-align:left"><b style="font-variant-numeric:tabular-nums;color:var(--muted)">${t.time||'··'}</b><span>${esc(t.title)}</span></button>`).join('')}
+      ${show.slice(0,5).map(t=>`<button class="mini ${t.done?'done':''}" data-act="edit" data-id="${t.id}" style="text-align:left"><b style="font-variant-numeric:tabular-nums;color:var(--muted)">${t.time?t.time+'–'+endT(t):'··'}</b><span>${esc(t.title)}</span></button>`).join('')}
       ${show.length>5?`<span class="muted" style="font-size:12px">и ещё ${show.length-5}</span>`:''}
       ${S.tasks.filter(t=>t.due===d&&!t.done).map(t=>`<button class="mini" data-act="edit" data-id="${t.id}" style="text-align:left;background:#FFF0D6;color:#8A5A00"><b>⚑</b><span>срок: ${esc(t.title)}</span></button>`).join('')}
       ${!show.length&&!S.tasks.some(t=>t.due===d&&!t.done)?'<span class="muted" style="font-size:13px">Пока ничего</span>':''}</article>`}).join('')}</div>
@@ -768,10 +832,10 @@ function vJoy(){
   const dn=d=>d===0?'сегодня!':d===1?'завтра':'через '+d+' дн.';
   return `<div class="head"><div><div class="eyebrow">Радость</div><h1>Всё хорошее в одном месте</h1><p>Здесь то, что напоминает: ты двигаешься, и впереди хорошее.</p></div></div>
   <div class="joygrid">
-  <section class="card" style="text-align:center"><div class="eyebrow">Твой росток</div><div style="display:grid;place-items:center;margin:8px 0">${gardenSvg(i)}</div>
-    <div class="big">${STAGES[i][1]}</div>
-    <p class="muted" style="margin:8px 0 0">Он растёт от каждого сделанного дела. Сделано всего: ${n}. ${nx?'До следующего этапа: '+(nx[0]-n)+'.':'Ты вырастила целый сад.'}</p>
-    <div class="banner" style="justify-content:center;margin-top:14px"><span style="text-align:center">${st?'Дней подряд с делами: '+st+'. Один пропуск не обнуляет прогресс.':'Сделай одно маленькое дело, и серия начнётся.'}</span></div></section>
+  <div id="game" style="grid-column:1/-1">${gameHTML()}</div>
+  ${lazyCard()}
+  ${vPet()}
+  ${fogCard()}
   <section class="card"><div class="eyebrow">Зачем мне это</div><p class="muted" style="margin:6px 0 12px;font-size:13px">Напиши своими словами, ради чего учишься. Я буду показывать это на главной, когда силы на исходе.</p>
     <div class="row" style="margin-bottom:10px"><input type="text" id="why-in" class="grow" style="flex:1 1 180px" placeholder="Например: хочу диплом и спокойную жизнь" aria-label="Причина"><button class="btn primary" data-act="whyadd">Добавить</button></div>
     <div class="stack" style="gap:8px">${S.why.map(w=>`<div class="li"><span>${esc(w.text)}</span><button class="x" data-act="whydel" data-id="${w.id}" aria-label="Удалить">×</button></div>`).join('')||'<div class="empty" style="padding:10px">Пока пусто. Начни с одной причины.</div>'}</div></section>
@@ -790,6 +854,39 @@ function vJoy(){
     <div class="stack" style="gap:8px">${S.joy.map(j=>`<div class="li"><span>${esc(j.text)}</span><button class="x" data-act="joydel" data-id="${j.id}" aria-label="Удалить">×</button></div>`).join('')}</div></section>
   </div>`;
 }
+
+/* ---------- игра «Парочки в саду» ---------- */
+let G=null;
+const GEM=['🌷','🌻','🌼','🪻','🌸','🍀','🍄','🦋','🐝','🐞','🌈','🍓'];
+const GLV=[[6,'Лёгкий','12 карточек'],[8,'Средний','16 карточек'],[10,'Сложный','20 карточек']];
+const shuf=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+function gNew(n){const pick=shuf(GEM).slice(0,n);G={n,cards:shuf(pick.concat(pick)).map((e,i)=>({i,e,open:false,ok:false})),first:null,lock:false,moves:0,found:0,win:false,fresh:true}}
+function gameHTML(){
+  const best=(S.game&&S.game.best)||{};
+  if(!G)return `<section class="card" style="grid-column:1/-1;text-align:center"><div class="eyebrow">Передышка</div>
+    <h3 style="font-size:20px;margin:6px 0">Парочки в саду</h3>
+    <p class="muted" style="margin:0 auto;max-width:360px;font-size:14px">Найди одинаковые цветы и зверушек. Без таймера и спешки: игра на 3–5 минут, чтобы выдохнуть и вернуться к делам.</p>
+    <div class="lv">${GLV.map(l=>`<button class="btn primary" data-g="start" data-n="${l[0]}" style="display:flex;flex-direction:column;gap:2px;padding:12px 20px"><span>${l[1]}</span><span style="font-size:11px;font-weight:500;opacity:.85">${best[l[0]]?'рекорд: '+best[l[0]]+' ходов':l[2]}</span></button>`).join('')}</div></section>`;
+  const cols=G.n===6?3:4;
+  return `<section class="card" style="grid-column:1/-1;text-align:center"><div class="row" style="justify-content:space-between"><div class="eyebrow">Парочки в саду</div><div class="row" style="gap:6px"><span class="chip">ходов: ${G.moves}</span><span class="chip" style="color:var(--good)">пар: ${G.found}/${G.n}</span></div></div>
+    <div class="gg" style="grid-template-columns:repeat(${cols},minmax(0,1fr))">${G.cards.map(c=>`<button class="gc ${c.open?'open':''} ${c.ok?'ok':''}" data-g="card" data-i="${c.i}" aria-label="${c.open||c.ok?c.e:'Закрытая карточка'}">${c.open||c.ok?c.e:'✿'}</button>`).join('')}</div>
+    ${G.win?`<div class="banner" style="justify-content:center;margin-top:16px"><span style="text-align:center"><b>Все пары найдены за ${G.moves} ходов!</b><br>${G.moves<=G.n+3?'Почти идеальная память. ':G.moves<=G.n*2?'Отлично получилось. ':'Главное, что довела до конца. '}Теперь можно вернуться к делам или ещё немного поиграть.</span></div>`:''}
+    <div class="row" style="justify-content:center;margin-top:14px"><button class="btn" data-g="start" data-n="${G.n}">Заново</button><button class="btn ghost" data-g="menu">Другой уровень</button></div></section>`}
+function gPaint(){const el=$('#game');if(el)el.innerHTML=gameHTML()}
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-g]');if(!el)return;const a=el.dataset.g;
+  if(a==='start'){gNew(+el.dataset.n);gPaint();return}
+  if(a==='menu'){G=null;gPaint();return}
+  if(a!=='card'||!G||G.lock||G.win)return;
+  const c=G.cards[+el.dataset.i];if(c.open||c.ok)return;
+  c.open=true;
+  if(G.first===null){G.first=c.i;gPaint();return}
+  const f=G.cards[G.first];G.first=null;G.moves++;
+  if(f.e===c.e){f.open=c.open=false;f.ok=c.ok=true;G.found++;
+    if(G.found===G.n){G.win=true;const b=S.game.best;if(!b[G.n]||G.moves<b[G.n]){b[G.n]=G.moves;save()}gPaint();const w=document.querySelector('.gc.ok');confetti({target:w||el});toast('Ты справилась! Приятно же?')}
+    else gPaint();
+  }else{G.lock=true;gPaint();setTimeout(()=>{if(!G)return;f.open=c.open=false;G.lock=false;gPaint()},800)}
+});
 function render(){
   renderNav();
   $('#main').innerHTML={day:vDay,week:vWeek,sch:vSchedule,habits:vHabits,focus:vFocus,notes:vNotes,joy:vJoy}[view]();
@@ -811,14 +908,14 @@ function updatePreview(){
   const p=parseQuick(v);
   pv.innerHTML=(p.title?'':'<span class="chip muted">нужно название</span>')+
     `<span class="chip">${p.date?(p.date===todayS()?'сегодня':shortDate(p.date)):'в копилку'}</span>`+
-    (p.time?`<span class="chip">${p.time}</span>`:'')+(p.due?`<span class="chip warnchip">⚑ срок: ${p.due===todayS()?'сегодня':shortDate(p.due)}</span>`:'')+`<span class="chip">${p.src?'≈ ':''}${durLabel(p.dur)}${p.src?' · '+p.src:''}</span>`+(p.src&&p.dur>15?`<button class="qc" data-act="tok" data-t="${p.dur-15}м">−15</button>`:'')+(p.src?`<button class="qc" data-act="tok" data-t="${p.dur+15}м">+15</button>`:'')+
-    (p.prio===3?'<span class="chip" style="color:var(--accent)">важно</span>':'')+catChip(p.cat||curCat);
+    (p.time?`<span class="chip">${p.time}–${fromM((toM(p.time)+p.dur)%1440)}</span>`:'')+(p.due?`<span class="chip warnchip">⚑ срок: ${p.due===todayS()?'сегодня':shortDate(p.due)}</span>`:'')+`<span class="chip">${p.src?'≈ ':''}${durLabel(p.dur)}${p.src?' · '+p.src:''}</span>`+(p.src&&p.dur>15?`<button class="qc" data-act="tok" data-t="${p.dur-15}м">−15</button>`:'')+(p.src?`<button class="qc" data-act="tok" data-t="${p.dur+15}м">+15</button>`:'')+
+    (p.prio===3?'<span class="chip" style="color:var(--accent)">важно</span>':'')+(QR.s?`<span class="chip">↻ ${Math.min(30,Math.max(2,+($('#qa-n')||{}).value||5))} раз</span>`:'')+catChip(p.cat||curCat);
 }
 function addFromQuick(){
   const el=$('#qa');if(!el)return;
   const p=parseQuick(el.value);if(!p.title){toast('Напиши, что нужно сделать');el.focus();return}
-  S.tasks.push({id:uid(),title:p.title,cat:p.cat||curCat,date:p.date,time:p.time,dur:p.dur,prio:p.prio,due:p.due||null,done:false});
-  save();render();toast(p.date?'Добавлено на '+(p.date===todayS()?'сегодня':shortDate(p.date)):'Убрала в копилку');
+  const nt={id:uid(),title:p.title,cat:p.cat||curCat,date:p.date,time:p.time,dur:p.dur,prio:p.prio,due:p.due||null,done:false};S.tasks.push(nt);let rn=0;if(QR.s){rn=Math.min(30,Math.max(2,+($('#qa-n')||{}).value||5));if(!nt.date)nt.date=todayS();makeCopies(nt,QR.s,rn);QR.s=''}
+  save();render();toast(rn?'Добавила в план: '+rn+' раз':p.date?'Добавлено на '+(p.date===todayS()?'сегодня':shortDate(p.date)):'Убрала в копилку');
   const q=$('#qa');if(q)q.focus();
 }
 function openModal(id){
@@ -827,6 +924,7 @@ function openModal(id){
     <h3 style="font-size:18px">Дело</h3>
     <label>Название<input type="text" id="m-title" value="${esc(t.title)}"></label>
     <div class="grid2"><label>Дата<input type="date" id="m-date" value="${t.date||''}"></label><label>Время<input type="time" id="m-time" value="${t.time||''}"></label></div>
+    <div class="muted" id="m-end" style="margin-top:-6px;font-size:13px">${t.time?'Закончится в '+endT(t):'Время не выбрано'}</div>
     ${(()=>{const L=recommend(t).slice(0,3);return L.length?'<div class="qg" style="margin-top:-4px"><span class="lbl">Лучше</span>'+L.map(x=>`<button type="button" class="qc" data-act="mrec" data-d="${x.d}" data-t="${fromM(x.start)}" style="color:var(--good)">${esc(cap(dLabel(x.d)))} ${fromM(x.start)}</button>`).join('')+'</div>':''})()}
     <div class="qg" style="margin-top:-4px"><span class="lbl">Дата</span>${[['Сегодня',0],['Завтра',1],['Через неделю',7],['В копилку','']].map(([l,n])=>`<button type="button" class="qc" data-act="mset" data-f="m-date" data-n="${n}">${l}</button>`).join('')}</div>
     <label>Срок сдачи (дедлайн)<input type="date" id="m-due" value="${t.due||''}"></label>
@@ -834,6 +932,9 @@ function openModal(id){
     <div class="grid2"><label>Минут<input type="number" id="m-dur" min="5" step="5" value="${t.dur}"></label>
     <label>Важность<select id="m-prio"><option value="1" ${t.prio===1?'selected':''}>Обычное</option><option value="2" ${t.prio===2?'selected':''}>Нужное</option><option value="3" ${t.prio===3?'selected':''}>Важное</option></select></label></div>
     <label>Сфера<select id="m-cat">${Object.keys(CATS).map(k=>`<option value="${k}" ${t.cat===k?'selected':''}>${CATS[k].n}</option>`).join('')}</select></label>
+    <label>Тип работы<select id="m-kind">${Object.keys(KINDS).map(k=>`<option value="${k}" ${(t.kind||'gen')===k?'selected':''}>${KINDS[k][0]}</option>`).join('')}</select></label>
+    ${t.rep?`<div class="banner" style="margin:0"><span>Серия: ${t.rep.i} из ${t.rep.n}</span><button type="button" class="btn sm ghost" data-act="delser" data-id="${t.id}" style="color:var(--bad)">Убрать невыполненные</button></div>`:`<div class="grid2"><label>Повторять<select id="m-rep"><option value="">Не повторять</option><option value="day">Каждый день</option><option value="alt">Через день</option><option value="wd">По будням</option><option value="week">Раз в неделю</option></select></label><label>Всего раз<input type="number" id="m-repn" min="2" max="30" value="5"></label></div>`}
+    <button type="button" class="btn" data-act="apstart" data-id="${t.id}">Анти-перфекционист: 5 минут</button>
     <div class="row" style="justify-content:space-between;margin-top:4px"><button type="button" class="btn ghost" data-act="del" data-id="${t.id}" style="color:var(--bad)">Удалить</button>
     <div class="row"><button type="button" class="btn" data-act="closeModal">Отмена</button><button type="submit" class="btn primary">Сохранить</button></div></div></form></div>`;
   $('#m-title').focus();
@@ -917,6 +1018,91 @@ function openWhen(){const t=S.tasks.find(x=>x.id===WH.id);if(!t)return;
   $('#layer').innerHTML=`<div class="scrim" data-act="closeModal"><div class="modal"><h3 style="font-size:18px">Когда сделать</h3><div><b>${esc(t.title)}</b> <span class="muted">· ${durLabel(t.dur)}${t.due?' · срок '+shortDate(t.due):''}</span></div>${WH.list.length?`<div class="stack" style="gap:8px">${recList(WH.list,'recapply',t.id)}</div>`:`<div class="muted">${noSlot(t.dur)}</div>`}<div class="row" style="justify-content:flex-end"><button type="button" class="btn" data-act="closeModal">Закрыть</button></div></div></div>`}
 
 /* ---------- события ---------- */
+/* ---------- шаг 2: чек-лист, забота, анти-перфекционист, победа дня ---------- */
+function flip(task,e){task.done=!task.done;const lz=lazyAdd(task);const dl=task.done?1:-1,b4=stageOf(S.wins||0);
+  S.wins=Math.max(0,(S.wins||0)+dl);S.doneDays[todayS()]=Math.max(0,(S.doneDays[todayS()]||0)+dl);const af=stageOf(S.wins);petPts(task.done?10:-10);
+  save();render();if(task.done){confetti(e);askActual(task);toast(af>b4?'Твой росток вырос: '+STAGES[af][1]:CHEERS[Math.floor(Math.random()*CHEERS.length)]);if(lz)setTimeout(()=>toast('В копилку лени добавилось 15 минут отдыха. Заслужено.'),1800)}}
+/* ---------- шаг 3 ---------- */
+let MT=null,RL=null,DK={rec:null,url:null,done:false,ch:[]};
+const STEPS=['открой файл и перечитай последний абзац','напиши одно предложение, пусть даже плохое','выпиши три слова по теме','положи нужные материалы на стол','поставь заголовок и дату','сделай самую простую часть, не по порядку','набросай план из трёх строчек'];
+const ZCATS=['study','tutor','work'];
+function lazyAdd(t){if(t.example||!ZCATS.includes(t.cat))return false;const Z=S.lazy,d=t.done?1:-1;Z.min=Math.max(0,Z.min+d*(t.dur||0));let g=false;if(d>0)while(Z.min>=60){Z.min-=60;Z.credit+=15;g=true}return g}
+function lazyCard(){const Z=S.lazy,p=Math.round(Z.min/60*100);
+  return `<section class="card"><div class="eyebrow">Копилка «Легальной лени»</div><p class="muted" style="margin:6px 0 12px;font-size:13px">Каждые 60 минут закрытых учебных дел дают 15 минут отдыха без чувства вины.</p>
+  <div class="row" style="margin-bottom:6px"><div class="bar grow" style="height:12px"><i style="width:${p}%;background:var(--accent)"></i></div><b>${Z.min}/60</b></div>
+  <div class="muted" style="margin-bottom:12px">В копилке отдыха: <b style="color:var(--ink)">${Z.credit} мин</b></div>
+  <button class="btn primary" style="width:100%" data-act="lazyuse" ${Z.credit>0?'':'disabled'}>${Z.credit>0?'Лениться '+Z.credit+' мин':'Пока пусто. Закрой учебное дело'}</button></section>`}
+function fogCard(){const n=S.wins||0,R=6,C=8,N=R*C,k=Math.min(N,n),T=['🌲','🌳','⛰️','🌾','🌊','🏕️','🌲','🌻'];
+  const ord=[...Array(N).keys()].sort((a,b)=>(((a+1)*2654435761)>>>0)%9973-(((b+1)*2654435761)>>>0)%9973),open=new Set(ord.slice(0,k)),st=streakDays(),cs='display:grid;place-items:center;aspect-ratio:1;border-radius:8px;font-style:normal;';
+  const cells=[...Array(N)].map((_,i)=>open.has(i)?`<i style="${cs}background:var(--soft2)">${i===ord[N-1]?'🏰':T[(i*5+3)%8]}</i>`:`<i style="${cs}background:var(--line);opacity:.75">☁️</i>`).join('');
+  return `<section class="card" style="text-align:center"><div class="eyebrow">Карта «Туман войны»</div>
+  <div style="display:grid;grid-template-columns:repeat(${C},1fr);gap:3px;margin:10px 0;font-size:clamp(16px,4.5vw,24px)" role="img" aria-label="Открыто ${k} из ${N} клеток">${cells}</div>
+  <div class="big">${k>=N?'Вся карта открыта':'Открыто '+k+' из '+N}</div>
+  <p class="muted" style="margin:8px 0 0">Каждое сделанное дело убирает туман с одной клетки. ${k<N?'До замка: '+(N-k)+'.':'Замок найден.'}</p>
+  <div class="banner" style="justify-content:center;margin-top:14px"><span style="text-align:center">${st?'Дней подряд с делами: '+st+'. Один пропуск не обнуляет прогресс.':'Сделай одно маленькое дело, и туман начнёт рассеиваться.'}</span></div></section>`}
+function mtOpen(o){MT=Object.assign({end:Date.now()+o.sec*1e3},o);mtPaint()}
+function mtPaint(){let el=$('#mt');if(!MT){if(el)el.remove();return}
+  if(!el){el=document.createElement('div');el.id='mt';el.setAttribute('role','dialog');el.setAttribute('aria-modal','true');el.style.cssText='position:fixed;inset:0;z-index:80;display:grid;place-items:center;padding:24px;text-align:center;background:linear-gradient(160deg,var(--soft),var(--accent2));color:var(--ink)';document.body.appendChild(el)}
+  el.innerHTML=`<div style="max-width:420px"><div class="eyebrow">${esc(MT.title)}</div><div class="ptime" id="mttime" style="font-size:64px;margin:12px 0">${clock((MT.end-Date.now())/1e3)}</div><p style="font-size:16px">${esc(MT.sub)}</p><button class="btn primary" style="margin-top:12px" data-act="mtdone">${esc(MT.btn)}</button></div>`}
+function mtTick(){if(!MT)return;const l=(MT.end-Date.now())/1e3;if(l<=0){const m=MT;MT=null;mtPaint();beep();m.onEnd(false,0);return}const a=$('#mttime');if(a)a.textContent=clock(l)}
+function rlPick(){const o=S.tasks.filter(t=>!t.done&&!t.example);RL={task:o.length?o[Math.floor(Math.random()*o.length)].title:'любое дело из списка',step:STEPS[Math.floor(Math.random()*STEPS.length)]}}
+async function duckStart(){DK.url=null;DK.done=false;DK.ch=[];let t0=Date.now();
+  try{const ms=await navigator.mediaDevices.getUserMedia({audio:true}),r=new MediaRecorder(ms);r.ondataavailable=ev=>DK.ch.push(ev.data);r.onstop=()=>{ms.getTracks().forEach(t=>t.stop());DK.url=URL.createObjectURL(new Blob(DK.ch,{type:r.mimeType||'audio/webm'}));if(view==='focus')render()};r.start();DK.rec=r}catch(e){DK.rec=null;toast('Микрофон недоступен. Говори вслух, запись не пойдёт.')}
+  mtOpen({title:'Утёнок слушает',sub:'Объясни вслух, что именно непонятно или с чего начать. Не редактируй себя, просто говори.',sec:60,btn:'Хватит',onEnd:()=>{if(DK.rec&&DK.rec.state==='recording')DK.rec.stop();DK.rec=null;DK.done=true;S.duck.push({day:todayS(),sec:Math.round((Date.now()-t0)/1e3)});save();if(view==='focus')render()}})}
+function vExtras(){const w=(S.draft||'').trim().split(/\s+/).filter(Boolean).length;
+  return `<section class="card"><div class="eyebrow">Начни с малого</div><p class="muted" style="margin:6px 0 10px;font-size:13px">Не получается начать? Крутани рулетку: два минуты на самый маленький шаг.</p>
+  ${RL?`<div class="banner" style="margin:0 0 12px;background:var(--soft)"><span><b>${esc(RL.task)}</b><br>${esc(RL.step)}</span></div>`:''}
+  <div class="row"><button class="btn ${RL?'':'primary'}" data-act="spin">${RL?'Крутить ещё':'Крутить рулетку'}</button>${RL?'<button class="btn primary" data-act="rlstart">2 минуты, поехали</button>':''}</div></section>
+  <section class="card"><div class="eyebrow">Черновик без Backspace</div><p class="muted" style="margin:6px 0 10px;font-size:13px">Здесь нельзя стирать: ни Backspace, ни Delete. Пиши как идёт, исправишь потом.</p>
+  <textarea id="nb" rows="6" placeholder="Просто пиши..." aria-label="Черновик без стирания">${esc(S.draft||'')}</textarea>
+  <div class="row" style="margin-top:10px;justify-content:space-between"><span class="muted" id="nbc">Слов: ${w}</span><span class="row"><button class="btn sm ghost" data-act="draftclr">Очистить</button><button class="btn sm primary" data-act="draftsave">В заметки</button></span></div></section>
+  <section class="card"><div class="eyebrow">Утёнок</div><p class="muted" style="margin:6px 0 10px;font-size:13px">Объясни задачу вслух за 60 секунд. Часто ответ находится по ходу рассказа.</p>
+  ${DK.done?`<div class="banner" style="margin:0 0 12px;background:var(--soft)"><span>Ты объяснила вслух. ${DK.url?'Можно послушать запись:':'Запись не сохранилась.'}</span></div>${DK.url?`<audio controls src="${DK.url}" style="width:100%;margin-bottom:12px"></audio>`:''}`:''}
+  <button class="btn primary" style="width:100%" data-act="duckstart">${DK.done?'Ещё раз':'Начать, 60 секунд'}</button><div class="muted" style="font-size:12px;margin-top:8px">Объяснений утёнку: ${S.duck.length}. Запись остаётся только на экране, пока не закроешь страницу.</div></section>`}
+const _vF=vFocus,_vJ=vJoy;vFocus=()=>_vF()+vExtras();
+document.addEventListener('beforeinput',e=>{if(e.target.id==='nb'&&/^(delete|history)/.test(e.inputType))e.preventDefault()});
+document.addEventListener('keydown',e=>{if(e.target.id==='nb'&&(e.key==='Backspace'||e.key==='Delete'||((e.ctrlKey||e.metaKey)&&/^[zxy]$/i.test(e.key))))e.preventDefault()});
+document.addEventListener('input',e=>{if(e.target.id==='nb'){S.draft=e.target.value;save();const c=$('#nbc');if(c)c.textContent='Слов: '+S.draft.trim().split(/\s+/).filter(Boolean).length}});
+document.addEventListener('focusin',e=>{if(e.target.id==='nb'){const l=e.target.value.length;e.target.setSelectionRange(l,l)}});
+document.addEventListener('mouseup',e=>{if(e.target.id==='nb'){const l=e.target.value.length;e.target.setSelectionRange(l,l)}});
+const CHK=['Проверено на ошибки','Оформлено по требованиям','Задание перечитано','Сохранено или отправлено'];
+const needCheck=t=>!t.example&&!['rest','home','me'].includes(t.cat);
+const KINDS={gen:['Обычное',CHK],essay:['Эссе',['Тезис и вывод на месте','Источники указаны и оформлены','Орфография проверена','Объём и оформление по требованиям','Сохранено или отправлено']],lab:['Лабораторная',['Данные и расчёты перепроверены','Таблицы и графики подписаны','Выводы отвечают на цель работы','Оформление по методичке','Сохранено или отправлено']],talk:['Доклад',['Время выступления проверено','Слайды без опечаток','Выводы звучат чётко','Прогнала вслух хотя бы раз','Файл сохранён и открывается']],notes:['Конспект',['Все темы охвачены','Непонятные места отмечены','Есть примеры или формулы','Перечитано один раз']]};
+function chkList(t){const k=t.kind||'gen',c=S.chkTpl&&S.chkTpl[k];return c&&c.length?c:(KINDS[k]||KINDS.gen)[1]}
+let TPK='gen';
+function tplCard(){const l=chkList({kind:TPK});
+  return `<section class="card" style="margin-top:14px"><div class="eyebrow">Чек-листы перед сдачей</div><p class="muted" style="margin:6px 0 10px;font-size:13px">Выбери тип работы и поправь пункты: по одному в строке. Тип задаётся в окне дела.</p>
+  <div class="row" style="margin-bottom:10px">${Object.keys(KINDS).map(k=>`<button class="btn sm ${k===TPK?'primary':''}" data-act="tplkind" data-k="${k}">${KINDS[k][0]}</button>`).join('')}</div>
+  <textarea id="tpl-t" rows="6" aria-label="Пункты чек-листа">${esc(l.join('\n'))}</textarea>
+  <div class="row" style="margin-top:10px;justify-content:flex-end"><button class="btn sm ghost" data-act="tplreset">Вернуть исходный</button><button class="btn sm primary" data-act="tplsave">Сохранить</button></div></section>`}
+const _vN=vNotes;vNotes=()=>_vN()+tplCard();
+const endT=t=>t.time?fromM((toM(t.time)+(t.dur||0))%1440):'';
+let QR={s:''};
+function makeCopies(b,step,n){n=Math.min(30,Math.max(2,n|0));const g=uid();b.rep={g,i:1,n};let d=b.date;
+  for(let i=2;i<=n;i++){if(step==='wd'){do{d=addDays(d,1)}while([0,6].includes(parseD(d).getDay()))}else d=addDays(d,step==='alt'?2:step==='week'?7:1);
+    S.tasks.push(Object.assign({},b,{id:uid(),date:d,done:false,check:null,act:undefined,rep:{g,i,n}}))}}
+document.addEventListener('input',e=>{const i=e.target.id;
+  if(i==='m-time'||i==='m-dur'){const t=$('#m-time').value,m=+$('#m-dur').value||0,o=$('#m-end');if(o)o.textContent=t?'Закончится в '+endT({time:t,dur:m}):'Время не выбрано'}
+  if(i==='qa-n')updatePreview()});
+function openCheck(id){const t=S.tasks.find(x=>x.id===id);if(!t)return;
+  $('#layer').innerHTML=`<div class="scrim" data-act="closeModal"><div class="modal" role="dialog" aria-modal="true"><div class="eyebrow">Перед закрытием${t.kind&&KINDS[t.kind]?': '+KINDS[t.kind][0].toLowerCase():''}</div><h3 style="font-size:18px">${esc(t.title)}</h3>
+  <div class="muted" style="font-size:13px">Быстрая самопроверка. Отмечать всё не обязательно: это подсказка, а не экзамен.</div>
+  <div class="stack" id="ck" style="gap:8px">${chkList(t).map((x,i)=>`<label class="li" style="font-size:14px;color:var(--ink);font-weight:500;cursor:pointer"><span>${x}</span><input type="checkbox" style="width:22px;height:22px;flex:none" ${t.check&&t.check[i]?'checked':''}></label>`).join('')}</div>
+  <div class="row" style="justify-content:flex-end"><button class="btn" data-act="closeModal">Ещё поработаю</button><button class="btn primary" data-act="ckdone" data-id="${t.id}">Готово</button></div></div></div>`}
+let CARE=[];
+function openCare(ids){CARE=ids;if(!ids.length)return;
+  $('#layer').innerHTML=`<div class="scrim" data-act="closeModal"><div class="modal" role="dialog" aria-modal="true"><div class="eyebrow">Перенос с заботой</div><h3 style="font-size:18px">Что помешало?</h3>
+  <div class="muted" style="font-size:14px">Дел: ${ids.length}. Это не оценка, просто подстрою план. Всё уйдёт на завтра.</div>
+  ${[['😴','Усталость'],['🧩','Было сложно'],['⏳','Не хватило времени']].map(([e,n],i)=>`<button class="btn" style="text-align:left" data-act="care" data-r="${i}">${e} ${n}</button>`).join('')}
+  <button class="btn ghost" data-act="closeModal">Не сейчас</button></div></div>`}
+const CARETX=['Перенесла на завтра. Сначала отдых, дела подождут.','Перенесла на завтра. Начни с «5 мин: доделать»: сложное проще начать с малого.','Перенесла на завтра. Время ещё будет.'];
+let AP=null;
+function apStart(id){const t=S.tasks.find(x=>x.id===id);if(!t)return;AP={id,end:Date.now()+300000};apPaint();toast('Пять минут на финальное оформление. Потом дело закроется само.')}
+function apPaint(){let el=$('#apbar');if(!AP){if(el)el.remove();return}const t=S.tasks.find(x=>x.id===AP.id);
+  if(!el){el=document.createElement('div');el.id='apbar';el.className='card ask fade';el.style.cssText='top:calc(12px + env(safe-area-inset-top,0px));bottom:auto';document.body.appendChild(el)}
+  el.innerHTML=`<div class="eyebrow">Анти-перфекционист</div><b>${esc(t?t.title:'')}</b><div class="ptime" id="aptime">${clock((AP.end-Date.now())/1e3)}</div><div class="muted" style="font-size:13px">Только финальное оформление. Время выйдет, и дело закроется.</div><div class="row" style="margin-top:8px"><button class="btn sm primary" data-act="apdone">Готово раньше</button><button class="btn sm ghost" data-act="apx">Отмена</button></div>`}
+function apTick(){if(!AP)return;const l=(AP.end-Date.now())/1e3;if(l<=0){const t=S.tasks.find(x=>x.id===AP.id);AP=null;apPaint();beep();if(t&&!t.done){flip(t,{target:document.body});toast('Время вышло, дело закрыто. Значит, этого достаточно.')}return}
+  const a=$('#aptime');if(a)a.textContent=clock(l)}
 document.addEventListener('click',e=>{
   const el=e.target.closest('[data-act]');if(!el)return;
   const a=el.dataset.act,id=el.dataset.id;
@@ -968,9 +1154,14 @@ document.addEventListener('click',e=>{
     case 'actual':{const m=+el.dataset.m;if(task&&m>0){S.hist.push({k:stems(task.title).sort().join(' '),min:m,plan:task.dur});if(S.hist.length>300)S.hist=S.hist.slice(-300);save();toast('Запомнила: '+durLabel(m))}closeAsk();break}
     case 'actualx':closeAsk();break;
     case 'export':{try{const b=new Blob([JSON.stringify(S)],{type:'application/json'}),u=URL.createObjectURL(b),x=document.createElement('a');x.href=u;x.download='moi-ritm-'+todayS()+'.json';document.body.appendChild(x);x.click();x.remove();setTimeout(()=>URL.revokeObjectURL(u),1000);toast('Копия сохранена в файл')}catch(er){toast('Не получилось сохранить файл')}break}
-    case 'toggle':if(task){task.done=!task.done;const dl=task.done?1:-1,b4=stageOf(S.wins||0);
-      S.wins=Math.max(0,(S.wins||0)+dl);S.doneDays[todayS()]=Math.max(0,(S.doneDays[todayS()]||0)+dl);const af=stageOf(S.wins);
-      save();render();if(task.done){confetti(e);askActual(task);toast(af>b4?'Твой росток вырос: '+STAGES[af][1]:CHEERS[Math.floor(Math.random()*CHEERS.length)])}}break;
+    case 'toggle':if(task){if(!task.done&&needCheck(task)){openCheck(task.id);break}flip(task,e)}break;
+    case 'ckdone':{closeModal();if(task){task.check=[...document.querySelectorAll('#ck input')].map(x=>x.checked);flip(task,e)}break}
+    case 'carestart':openCare(overdue().map(t=>t.id));break;
+    case 'care':{const r=+el.dataset.r;CARE.forEach(i=>{const t=S.tasks.find(x=>x.id===i);if(t){t.date=addDays(todayS(),1);t.time=null;S.care.push({id:uid(),task:t.id,day:todayS(),reason:r})}});CARE=[];save();closeModal();render();toast(CARETX[r]);break}
+    case 'apstart':closeModal();apStart(id);break;
+    case 'apdone':{const t=AP&&S.tasks.find(x=>x.id===AP.id);AP=null;apPaint();if(t&&!t.done)flip(t,e);break}
+    case 'apx':AP=null;apPaint();break;
+    case 'winsave':{const i=$('#win-in'),v=i.value.trim();if(!v){i.focus();break}S.winLog[sel]=v;save();render();toast('Записала. Ты правда молодец.');break}
     case 'whyadd':{const i=$('#why-in'),v=i.value.trim();if(!v){i.focus();break}S.why.push({id:uid(),text:v});save();render();break}
     case 'whydel':S.why=S.why.filter(x=>x.id!==id);save();render();break;
     case 'evadd':{const n=$('#ev-n').value.trim(),d=$('#ev-d').value;if(!n||!d){toast('Нужны название и дата');break}S.events.push({id:uid(),name:n,date:d});save();render();break}
@@ -989,6 +1180,18 @@ document.addEventListener('click',e=>{
       S.tasks.push({id:uid(),title:p.title,cat:p.cat||curCat,date:x.d,time:fromM(x.start),dur:p.dur,prio:p.prio,due:p.due||null,done:false});
       REC=null;const q=$('#qa');if(q)q.value='';save();render();toast('Поставила: '+dLabel(x.d)+' в '+fromM(x.start));break}
     case 'edit':openModal(id);break;
+    case 'lazyuse':{const c=S.lazy.credit;if(c<1)break;S.lazy.credit=0;save();mtOpen({title:'Легальная лень',sub:'Ты это заработала. Дела подождут: никакой почты и никаких «чуть-чуть доделать».',sec:c*60,btn:'Вернуться',onEnd:(early,l)=>{if(early)S.lazy.credit+=Math.floor(l/60);save();if(view==='joy')render();toast(early?'С возвращением. Остаток отдыха сохранила.':'Отдых закончился. Мягко возвращаемся.')}});break}
+    case 'spin':rlPick();render();break;
+    case 'rlstart':if(RL)mtOpen({title:'Начни с малого',sub:RL.task+': '+RL.step+'. Только это, и две минуты.',sec:120,btn:'Готово',onEnd:()=>{toast('Две минуты позади. Самое трудное, начать, ты уже сделала.')}});break;
+    case 'duckstart':duckStart();break;
+    case 'mtdone':{if(!MT)break;const m=MT,l=(m.end-Date.now())/1e3;MT=null;mtPaint();m.onEnd(true,l);break}
+    case 'draftsave':{const v=(S.draft||'').trim();if(!v){toast('Пока пусто');break}S.notes.unshift({id:uid(),text:v});S.draft='';save();render();toast('Сохранила в заметки');break}
+    case 'draftclr':S.draft='';save();render();break;
+    case 'tplkind':TPK=el.dataset.k;render();break;
+    case 'tplsave':{const v=$('#tpl-t').value.split('\n').map(x=>x.trim().slice(0,80)).filter(Boolean).slice(0,8);if(!v.length){toast('Нужен хотя бы один пункт');break}S.chkTpl=S.chkTpl||{};S.chkTpl[TPK]=v;save();render();toast('Чек-лист сохранён');break}
+    case 'tplreset':if(S.chkTpl)delete S.chkTpl[TPK];save();render();toast('Вернула исходный список');break;
+    case 'qrep':QR.s=el.dataset.s;document.querySelectorAll('[data-act=qrep]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.s===QR.s));updatePreview();break;
+    case 'delser':{if(task&&task.rep){const g=task.rep.g,c=S.tasks.filter(x=>x.rep&&x.rep.g===g&&!x.done).length;S.tasks=S.tasks.filter(x=>!(x.rep&&x.rep.g===g&&!x.done));save();closeModal();render();toast('Убрала невыполненных из серии: '+c)}break}
     case 'closeModal':if(el.classList.contains('scrim')&&e.target!==el)break;closeModal();break;
     case 'del':lastDel=task||null;S.tasks=S.tasks.filter(t=>t.id!==id);save();closeModal();render();toast('Дело удалено',!!lastDel);break;
     case 'undo':if(lastDel){S.tasks.push(lastDel);lastDel=null;save();render();const tt=$('.toast');if(tt)tt.remove()}break;
@@ -1003,6 +1206,12 @@ document.addEventListener('click',e=>{
     case 'plan':{const r=autoPlan(sel);render();const f=freeInfo(sel).total;
       toast((r.placed?`Расставила ${r.placed} дел${r.left?`, ${r.left} не влезло`:''}.`:(r.left?'Свободного времени не осталось.':'Нечего расставлять.'))+(f?' Свободно после дел: '+durLabel(f)+'.':''));break}
     case 'rollover':{const o=overdue();o.forEach(t=>{t.date=todayS();t.time=null});save();render();toast('Хвосты перенесены на сегодня: '+o.length);break}
+    case 'pstudy':S.pet.mode='study';S.pet.start=Date.now();S.pet.warned=false;save();petKey='';petTick();break;
+    case 'pstop':S.pet.base=petMin();S.pet.mode=null;save();petKey='';petTick();break;
+    case 'prest':{const P=S.pet;if(P.mode==='study')P.base=petMin();P.mode='rest';P.len=+el.dataset.m;P.start=Date.now();save();petKey='';petTick();break}
+    case 'prestx':S.pet.mode=null;save();petKey='';petTick();break;
+    case 'bat':{const d=el.dataset.d||todayS(),v=+el.dataset.v;(S.battery||(S.battery={}))[d]=v;S.mood[d]=Object.assign({},S.mood[d]||{},{energy:v<=3?1:v<=6?2:3});save();closeModal();render();toast(v<=3?'Поняла. Сегодня берегу тебя: только главное.':'Записала: '+v+' из 10');break}
+    case 'batskip':if(el.classList.contains('scrim')&&e.target!==el)break;S.batSkip=todayS();save();closeModal();break;
     case 'mood':S.mood[sel]=Object.assign({},mood(sel),{mood:+el.dataset.v});save();render();break;
     case 'energy':S.mood[sel]=Object.assign({},mood(sel),{energy:+el.dataset.v});save();render();break;
     case 'habit':case 'habitToday':{const d=a==='habit'?sel:todayS();const l=S.hlog[d]||(S.hlog[d]=[]);const i=l.indexOf(id);i>=0?l.splice(i,1):l.push(id);save();render();break}
@@ -1026,17 +1235,19 @@ document.addEventListener('change',e=>{if(QD(e))return;const FW={'fw-from':'from
 document.addEventListener('keydown',e=>{
   if(e.key==='Enter'&&e.target.id==='qa'){e.preventDefault();addFromQuick()}
   if(e.key==='Enter'&&e.target.id==='hn'){e.preventDefault();const b=document.querySelector('[data-act=haddBtn]');b&&b.click()}
-  if(e.key==='Enter'){const m={'why-in':'whyadd','joy-in':'joyadd','tg-n':'tagadd','fun-in':'funadd'}[e.target.id];if(m){e.preventDefault();const b=document.querySelector('[data-act='+m+']');b&&b.click()}}
+  if(e.key==='Enter'){const m={'win-in':'winsave','why-in':'whyadd','joy-in':'joyadd','tg-n':'tagadd','fun-in':'funadd'}[e.target.id];if(m){e.preventDefault();const b=document.querySelector('[data-act='+m+']');b&&b.click()}}
   if(e.key==='Escape')closeModal();
 });
 document.addEventListener('submit',e=>{
   if(e.target.id!=='mf')return;e.preventDefault();
   const t=S.tasks.find(x=>x.id===e.target.dataset.id);if(!t)return;
   const title=$('#m-title').value.trim();if(!title){toast('Название не может быть пустым');return}
-  t.title=title;t.date=$('#m-date').value||null;t.time=$('#m-time').value||null;t.due=$('#m-due').value||null;t.dur=Math.max(5,+$('#m-dur').value||30);t.prio=+$('#m-prio').value;t.cat=$('#m-cat').value;
+  t.title=title;t.date=$('#m-date').value||null;t.time=$('#m-time').value||null;t.due=$('#m-due').value||null;t.dur=Math.max(5,+$('#m-dur').value||30);t.prio=+$('#m-prio').value;t.cat=$('#m-cat').value;t.kind=$('#m-kind').value;{const rs=$('#m-rep')&&$('#m-rep').value;if(rs){if(!t.date)t.date=todayS();makeCopies(t,rs,+$('#m-repn').value||5)}}
   save();closeModal();render();if(t.due&&t.date&&t.date>t.due)toast('Дело стоит позже срока. Подвинь дату, если нужно');
 });
 render();
+if(!bat(todayS())&&S.batSkip!==todayS())openBat();
+petTick();setInterval(petTick,1000);
 })();
 </script>
 
