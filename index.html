@@ -639,12 +639,25 @@ function vScan(){
   <div class="muted" style="font-size:13px;margin-top:10px">Проверь время. Если что-то не так, после применения поправь вручную ниже.</div>
   <div class="row" style="margin-top:12px"><button class="btn primary" data-act="scok">Применить</button><button class="btn ghost" data-act="scno">Отмена</button></div></section>`;
   return `<section class="card"><h3 style="font-size:18px">Расписание по скриншоту</h3><p class="muted" style="font-size:13px">Загрузи скрин или фото расписания, я сама заполню пары по дням. Писать ничего не нужно.</p>
-  ${scBusy?'<div class="chip">Читаю расписание…</div>':'<label class="btn primary" style="display:inline-block;cursor:pointer">Выбрать скриншот<input type="file" id="sc-file" accept="image/*" hidden></label>'}</section>`}
+  ${scNeedKey()?`<div class="muted" style="font-size:13px;margin-bottom:8px">Чтобы читать скриншоты, нужен бесплатный ключ Google Gemini. Получи его на <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> и вставь сюда. Ключ хранится только в этом браузере.</div><label>Ключ API<input type="password" id="sc-key" autocomplete="off" value="${esc(aiCfg().key||'')}" placeholder="AIza…"></label><div class="row" style="margin-top:10px"><button class="btn primary" data-act="sckey">Сохранить ключ</button></div>`:scBusy?'<div class="chip">Читаю расписание…</div>':'<label class="btn primary" style="display:inline-block;cursor:pointer">Выбрать скриншот<input type="file" id="sc-file" accept="image/*" hidden></label>'}</section>`}
+const scHasClaude=()=>!!(window.claude&&window.claude.use);
+let scKeyErr=false;
+function scNeedKey(){return !scHasClaude()&&(!aiCfg().key||scKeyErr)}
+function imgB64(f){return new Promise((res,rej)=>{const u=URL.createObjectURL(f),im=new Image();im.onload=()=>{const k=Math.min(1,1800/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);res(c.toDataURL('image/jpeg',0.85).split(',')[1])};im.onerror=()=>{URL.revokeObjectURL(u);rej({code:'img'})};im.src=u})}
 document.addEventListener('change',async e=>{if(e.target.id!=='sc-file')return;const f=e.target.files[0];if(!f)return;
-  let sm=null;try{sm=window.claude&&await window.claude.use('sample')}catch(x){}
-  if(!sm){toast('Чтение скриншотов здесь недоступно. Заполни пары вручную');return}
+  let sm=null;try{sm=scHasClaude()&&await window.claude.use('sample')}catch(x){}
+  if(!sm&&!aiCfg().key){scKeyErr=true;render();return}
   scBusy=true;render();
-  try{SC=normSc(await sm.json(SCP,{images:[f],cache:false}))}catch(err){toast(err&&err.code==='not_granted'?'Без разрешения я не смогу прочитать скрин':'Не получилось прочитать. Попробуй более чёткий скрин')}
+  try{
+    if(sm)SC=normSc(await sm.json(SCP,{images:[f],cache:false}));
+    else SC=normSc(await callAI(SCP,[await imgB64(f)]));
+  }catch(err){
+    const c=err&&err.code;
+    if(c==='not_granted')toast('Без разрешения я не смогу прочитать скрин');
+    else if(c===400||c===401||c===403){scKeyErr=true;toast('Ключ не подошёл. Проверь его')}
+    else if(c==='network')toast('Нет связи с ИИ. Проверь интернет');
+    else if(c==='img')toast('Не удалось открыть картинку. Попробуй PNG или JPG');
+    else toast('Не получилось прочитать. Попробуй более чёткий скрин')}
   scBusy=false;render()});
 /* ---------- иконки ---------- */
 const IC={
@@ -952,14 +965,14 @@ function openModal(id){
 let AIS=null;
 const AIK='ritm-ai';
 const aiCfg=()=>{try{return JSON.parse(localStorage.getItem(AIK))||{}}catch(e){return {}}};
-async function callAI(prompt){
+async function callAI(prompt,imgs){
   const c=aiCfg(),list=[(c.model||'').trim(),'gemini-3.5-flash-lite','gemini-2.5-flash-lite','gemini-flash-latest','gemini-2.5-flash','gemini-3.1-flash-lite'].filter((m,i,a)=>m&&a.indexOf(m)===i);
   let last={code:404},busy=null;
   for(let round=0;round<5;round++){
   busy=null;
   for(const model of list){
     let r;
-    try{r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(model)+':generateContent',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':c.key},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{responseMimeType:'application/json',temperature:0.4}})})}
+    try{r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(model)+':generateContent',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':c.key},body:JSON.stringify({contents:[{parts:[{text:prompt}].concat((imgs||[]).map(d=>({inline_data:{mime_type:'image/jpeg',data:d}})))}],generationConfig:{responseMimeType:'application/json',temperature:0.4}})})}
     catch(e){throw {code:'network'}}
     if(r.status===404){let m='';try{m=((await r.json()).error||{}).message||''}catch(e){}last={code:404,msg:m,model};continue}
     if(!r.ok){let m='';try{m=((await r.json()).error||{}).message||''}catch(e){}if(r.status===503||r.status===500||r.status===429){last=busy={code:r.status,msg:m};continue}throw {code:r.status,msg:m}}
@@ -1254,6 +1267,7 @@ document.addEventListener('click',e=>{
       REC=null;const q=$('#qa');if(q)q.value='';save();render();toast('Поставила: '+dLabel(x.d)+' в '+fromM(x.start));break}
     case 'aisplit':aiSplit(id);break;
     case 'aicfg':if(AIS){AIS={id:AIS.id,setup:true};aiPaint()}break;
+    case 'sckey':{const k=($('#sc-key').value||'').trim();if(!k){toast('Вставь ключ');break}try{const c=aiCfg();localStorage.setItem(AIK,JSON.stringify({key:k,model:c.model||'gemini-flash-latest'}))}catch(x){toast('Не удалось сохранить ключ в браузере');break}scKeyErr=false;render();toast('Ключ сохранён. Выбери скриншот');break}
     case 'aikeysave':{const k=($('#ai-key').value||'').trim();if(!k){toast('Вставь ключ');break}try{localStorage.setItem(AIK,JSON.stringify({key:k,model:($('#ai-model').value||'').trim()||'gemini-flash-latest'}))}catch(x){toast('Не удалось сохранить ключ в браузере');break}const i=AIS&&AIS.id;if(i)aiSplit(i);break}
     case 'aioffline':{const t0=AIS&&S.tasks.find(x=>x.id===AIS.id);if(t0){AIS={id:t0.id,steps:offlineSteps(t0)};aiPaint()}break}
     case 'aisplitok':{const t=AIS&&S.tasks.find(x=>x.id===AIS.id);if(!t)break;
