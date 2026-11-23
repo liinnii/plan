@@ -210,14 +210,16 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
 @keyframes pop{50%{transform:scale(1.12)}}
 .lv{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:14px}
 @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-@media (max-width:560px){
-  .task{grid-template-columns:auto minmax(0,1fr)}
-  .task>.subs{grid-column:2;display:flex;flex-direction:column;gap:2px;margin-top:-2px}
-.subrow{display:flex;gap:10px;align-items:flex-start;text-align:left;padding:6px 0;min-height:36px;font-size:14px;color:var(--ink)}
+.task>.subs{grid-column:2 / -1;display:flex;flex-direction:column;gap:2px;margin-top:-2px;min-width:0}
+.subrow{display:flex;gap:10px;align-items:flex-start;text-align:left;padding:6px 0;min-height:36px;font-size:14px;color:var(--ink);min-width:0}
+.subrow>span:last-child{min-width:0;overflow-wrap:anywhere}
 .subbox{flex:none;width:22px;height:22px;border-radius:7px;border:2px solid var(--accent);display:grid;place-items:center;font-size:14px;font-weight:700;color:#fff;margin-top:1px}
 .subrow.sdone .subbox{background:var(--accent)}
 .subrow.sdone .subtx{text-decoration:line-through;opacity:.55}
-.task>.btn,.task>.tact{grid-column:2;justify-self:start}
+.task>.btn,.task>.tact{grid-column:2 / -1;justify-self:start}
+.tact{flex-wrap:wrap}
+@media (max-width:560px){
+  .task{grid-template-columns:auto minmax(0,1fr)}
   .task>button[data-act="edit"]{flex-direction:column;gap:2px!important}
   .card h3.grow{flex:1 1 100%}
   .qa .cats{flex:1 1 100%}
