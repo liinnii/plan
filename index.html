@@ -951,8 +951,8 @@ async function callAI(prompt){
     let r;
     try{r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(model)+':generateContent',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':c.key},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{responseMimeType:'application/json',temperature:0.4}})})}
     catch(e){throw {code:'network'}}
-    if(r.status===404){last={code:404};continue}
-    if(!r.ok)throw {code:r.status};
+    if(r.status===404){let m='';try{m=((await r.json()).error||{}).message||''}catch(e){}last={code:404,msg:m,model};continue}
+    if(!r.ok){let m='';try{m=((await r.json()).error||{}).message||''}catch(e){}throw {code:r.status,msg:m}}
     const j=await r.json(),t=(((j.candidates||[])[0]||{}).content||{}).parts;
     const txt=(t||[]).map(p=>p.text||'').join('').replace(/```json|```/g,'').trim();
     return JSON.parse(txt);
@@ -988,7 +988,7 @@ async function aiSplit(id){
   }catch(err){
     if(!AIS||AIS.id!==id)return;
     const c=err&&err.code;
-    AIS={id,err:c===429?'Лимит запросов исчерпан. Подожди минуту и попробуй снова.':c===400||c===403?'Google не принял ключ. Проверь ключ в настройках ИИ.':c===404?'Такой модели нет. Проверь название модели в настройках ИИ.':c==='network'?'Нет связи с сервисом ИИ. Проверь интернет.':'Не получилось получить ответ. Попробуй ещё раз.'};
+    AIS={id,err:c===429?'Лимит запросов исчерпан. Подожди минуту и попробуй снова.':c===400||c===403?'Google не принял ключ. Проверь ключ в настройках ИИ.':c===404?'Такой модели нет. Проверь название модели в настройках ИИ.':c==='network'?'Нет связи с сервисом ИИ. Проверь интернет.':'Не получилось получить ответ. Попробуй ещё раз.'};if(err&&err.msg)AIS.err+=' [Google: '+err.code+' — '+String(err.msg).slice(0,200)+']';
   }
   aiPaint();
 }
