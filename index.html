@@ -112,7 +112,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
 .tt{font-weight:600;overflow-wrap:anywhere;text-align:left;display:block}
 .meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;align-items:center}
 .prio3{box-shadow:inset 3px 0 0 var(--accent)}
-.warnchip{background:#FFF0D6;color:#8A5A00}
+.warnchip{background:#FFF0D6;color:#8A5A00}.duebad{background:#FFE1E8;color:#A3224A}.duecalm{background:var(--soft2);color:var(--muted)}.qd{font:inherit;font-size:13px;padding:6px 10px;min-height:36px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink)}
 .banner{padding:12px 14px;border-radius:16px;background:var(--soft2);border:1px solid var(--line);margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 .banner span{flex:1 1 200px;min-width:0}
 .fbar{position:relative;height:18px;border-radius:99px;background:var(--soft);overflow:hidden;margin:14px 0 6px}
@@ -231,6 +231,21 @@ const WD=['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
 const WDL=['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота'];
 const longDate=s=>{const d=parseD(s);return WDL[d.getDay()]+', '+d.getDate()+' '+MON[d.getMonth()]};
 const shortDate=s=>{const d=parseD(s);return d.getDate()+' '+MON[d.getMonth()]};
+const dueIn=s=>Math.round((parseD(s)-parseD(todayS()))/864e5);
+function dueInfo(t){if(!t.due)return null;const n=dueIn(t.due);
+  return {n,cls:n<0?'duebad':n<=1?'warnchip':'duecalm',txt:n<0?'срок прошёл '+(-n)+' дн. назад':n===0?'срок сегодня':n===1?'срок завтра':'до '+shortDate(t.due)+' · '+n+' дн.'}}
+const dueChip=t=>{const i=!t.done&&dueInfo(t);return i?`<span class="chip ${i.cls}">⚑ ${i.txt}</span>`:''};
+const TK=a=>a.map(([l,t])=>`<button class="qc" data-act="tok" data-t="${t}">${l}</button>`).join('');
+function dueBanner(){const u=S.tasks.filter(t=>t.due&&!t.done&&dueIn(t.due)<=2).sort((a,b)=>a.due<b.due?-1:1).slice(0,3);
+  return u.length?`<div class="banner"><span>⚑ Скоро срок: ${u.map(t=>esc(t.title)+' ('+dueInfo(t).txt+')').join('; ')}</span></div>`:''}
+function vDue(){const l=S.tasks.filter(t=>t.due&&!t.done).sort((a,b)=>a.due<b.due?-1:1);
+  return `<section class="card"><div class="row"><h3 class="grow" style="font-size:16px">Сроки</h3><span class="muted">${l.length}</span></div>`+
+  (l.length?`<div class="stack" style="gap:8px;margin-top:10px">${l.slice(0,6).map(t=>`<button data-act="edit" data-id="${t.id}" style="text-align:left;min-width:0"><span class="tt">${esc(t.title)}</span><br><span class="chip ${dueInfo(t).cls}" style="margin-top:4px">⚑ ${dueInfo(t).txt}</span></button>`).join('')}</div>`
+  :'<div class="muted" style="font-size:13px;margin-top:8px">Дел со сроком нет. Напиши в деле «до пт» или «до 25.11».</div>')+`</section>`}
+function QD(e){const id=e.target.id;if(!{'qa-date':1,'qa-time':1,'qa-due':1}[id]||!e.target.value)return false;
+  const v=e.target.value,d=parseD(id==='qa-time'?todayS():v),dm=pad(d.getDate())+'.'+pad(d.getMonth()+1);
+  const tk=id==='qa-time'?v:(id==='qa-due'?'до '+dm:dm);
+  const q=$('#qa');if(q){q.value=(q.value.trim()+' '+tk).trim();updatePreview()}e.target.value='';return true}
 const durLabel=m=>m>=60?(m%60?Math.floor(m/60)+' ч '+(m%60)+' м':Math.floor(m/60)+' ч'):m+' м';
 const CATS={study:{n:'Учёба',c:'var(--c-study)'},tutor:{n:'Репетиторство',c:'var(--c-tutor)'},work:{n:'Дела',c:'var(--c-work)'},home:{n:'Дом',c:'var(--c-home)'},me:{n:'Для себя',c:'var(--c-me)'},rest:{n:'Отдых',c:'var(--c-rest)'}};
 const RESTS=[['Прогулка',30],['Чай и тишина',15],['Дневной сон',20],['Фильм или сериал',60],['Встреча с друзьями',90]];
@@ -315,8 +330,16 @@ function askActual(t){if(!t||t.example)return;closeAsk();
 
 /* ---------- разбор быстрой строки ---------- */
 const DAYRX=[[1,/^(пн|понедельник[а-яё]*)$/],[2,/^(вт|вторник[а-яё]*)$/],[3,/^(ср|сред[ауы])$/],[4,/^(чт|четверг[а-яё]*)$/],[5,/^(пт|пятниц[ауы])$/],[6,/^(сб|суббот[ауы])$/],[0,/^(вс|воскресень[ея])$/]];
+function dueFrom(w){w=w.toLowerCase().replace(/\s+/g,' ');let m;
+  if(w==='сегодня')return todayS();if(w==='завтра')return addDays(todayS(),1);if(w==='послезавтра')return addDays(todayS(),2);
+  if(w==='конца недели')return addDays(todayS(),(7-parseD(todayS()).getDay())%7);
+  if(w==='конца месяца'){const n=new Date();return fmt(new Date(n.getFullYear(),n.getMonth()+1,0))}
+  const dr=DAYRX.find(x=>x[1].test(w));if(dr){let df=(dr[0]-parseD(todayS()).getDay()+7)%7;if(df===0)df=7;return addDays(todayS(),df)}
+  let mo,dd;if((m=w.match(/^(\d{1,2})\.(\d{1,2})$/))&&+m[1]<=31&&+m[2]<=12){dd=+m[1];mo=+m[2]-1}
+  else if((m=w.match(/^(\d{1,2}) ([а-яё]+)$/))&&MON.indexOf(m[2])>=0){dd=+m[1];mo=MON.indexOf(m[2])}else return null;
+  const y=new Date().getFullYear();let d=new Date(y,mo,dd);if(fmt(d)<todayS())d=new Date(y+1,mo,dd);return fmt(d)}
 function parseQuick(raw){
-  const out={title:'',date:undefined,time:null,dur:null,prio:2,cat:null};
+  const out={title:'',date:undefined,time:null,dur:null,prio:2,cat:null,due:null};
   let ovD,ovT;
   raw=String(raw).replace(/через\s+(\d+)\s*(?:дн[а-яё]*|день)/i,(m,n)=>{ovD=addDays(todayS(),Math.min(+n,365));return ' '})
     .replace(/через\s+недел[а-яё]*/i,()=>{ovD=addDays(todayS(),7);return ' '})
@@ -325,6 +348,8 @@ function parseQuick(raw){
     .replace(/через\s+(\d+)\s*(?:час[а-яё]*|ч)(?=\s|$|,)/i,(m,n)=>{const t=Math.ceil((nowM()+ +n*60)/5)*5;if(t<1440){ovT=fromM(t);ovD=todayS()}return ' '})
     .replace(/(в|на)\s+следующ[а-яё]+\s+/i,'$1 ');
   raw=normV(raw);
+  let ovDue;const DW='сегодня|завтра|послезавтра|понедельник[а-яё]*|вторник[а-яё]*|сред[ауы]|четверг[а-яё]*|пятниц[ауы]|суббот[ауы]|воскресень[ея]|пн|вт|ср|чт|пт|сб|вс|\\d{1,2}\\.\\d{1,2}|\\d{1,2}\\s+(?:'+MON.join('|')+')|конца\\s+недели|конца\\s+месяца';
+  raw=raw.replace(new RegExp('(^|\\s)(?:до|дедлайн|срок)\\s+('+DW+')(?=\\s|$|,)','gi'),(m,sp,w)=>{const d=dueFrom(w);if(d)ovDue=d;return d?sp:m});
   const words=raw.trim().split(/\s+/).filter(Boolean);
   const used=new Array(words.length).fill(false);
   const base=sel;
@@ -356,6 +381,7 @@ function parseQuick(raw){
   if(out.title)out.title=out.title[0].toUpperCase()+out.title.slice(1);
   if(ovT&&!out.time)out.time=ovT;
   if(ovD!==undefined)out.date=ovD;
+  if(ovDue)out.due=ovDue;
   if(out.date===undefined)out.date=base;
   if(!out.dur){const g=guessDur(out.title,out.cat);out.dur=g.min;out.src=g.src}
   return out;
@@ -441,14 +467,14 @@ function confetti(e){
     an.onfinish=()=>d.remove();
   }
 }
-function freeInfo(day){
+function freeInfo(day,ex,extra){
   const W=S.day;let from=toM(W.from),to=toM(W.to);if(to<=from+60)to=Math.min(24*60,from+60);
   const isT=day===todayS();
   const start=Math.min(to,Math.max(from,isT?Math.ceil(nowM()/15)*15:from));
-  const all=dayTasks(day);
+  const all=dayTasks(day).filter(t=>t.id!==ex);
   const clip=b=>[Math.max(b[0],start),Math.min(b[1],to)];
   const sim=all.filter(t=>t.time).map(t=>[toM(t.time),toM(t.time)+t.dur]).filter(b=>b[1]>start&&b[0]<to).map(clip).sort((a,b)=>a[0]-b[0]);
-  const timedMin=sim.reduce((x,b)=>x+b[1]-b[0],0);schBlocks(day).forEach(x=>{if(x.b>start&&x.a<to)sim.push(clip([x.a,x.b]))});sim.sort((a,b)=>a[0]-b[0]);
+  const timedMin=sim.reduce((x,b)=>x+b[1]-b[0],0);schBlocks(day).forEach(x=>{if(x.b>start&&x.a<to)sim.push(clip([x.a,x.b]))});(extra||[]).forEach(x=>{if(x.d===day&&x.b>start&&x.a<to)sim.push(clip([x.a,x.b]))});sim.sort((a,b)=>a[0]-b[0]);
   const low=mood(day).energy===1||S.heavy[day];
   const un=all.filter(t=>!t.time&&!t.done).sort((a,b)=>low?(a.dur-b.dur||b.prio-a.prio):(b.prio-a.prio||b.dur-a.dur));
   let unMin=0,unLeft=0;
@@ -585,9 +611,9 @@ function taskRow(t,opts={}){
     <button data-act="edit" data-id="${t.id}" style="min-width:0;display:flex;gap:12px;align-items:flex-start;text-align:left">
       <span class="time">${t.time||'—'}</span>
       <span style="min-width:0"><span class="tt">${esc(t.title)}</span>
-      <span class="meta">${catChip(t.cat)}<span class="chip">${durLabel(t.dur)}</span>${t.prio===3?'<span class="chip" style="color:var(--accent)">важно</span>':''}${ov?'<span class="chip warnchip">пересекается</span>':''}${t.example?'<span class="chip muted">пример</span>':''}</span></span>
+      <span class="meta">${catChip(t.cat)}<span class="chip">${durLabel(t.dur)}</span>${dueChip(t)}${t.prio===3?'<span class="chip" style="color:var(--accent)">важно</span>':''}${ov?'<span class="chip warnchip">пересекается</span>':''}${t.example?'<span class="chip muted">пример</span>':''}</span></span>
     </button>
-    <div class="tact"><button class="btn sm ghost" data-act="focusTask" data-id="${t.id}" aria-label="Запустить фокус">Фокус</button><button class="xdel" data-act="del" data-id="${t.id}" aria-label="Удалить дело">×</button></div>
+    <div class="tact">${!t.done&&!t.time&&!t.example?`<button class="btn sm ghost" data-act="when" data-id="${t.id}">Когда?</button>`:''}<button class="btn sm ghost" data-act="focusTask" data-id="${t.id}" aria-label="Запустить фокус">Фокус</button><button class="xdel" data-act="del" data-id="${t.id}" aria-label="Удалить дело">×</button></div>
   </div>`;
 }
 function vDay(){
@@ -619,17 +645,18 @@ function vDay(){
       ${bulk?`<textarea id="bulk" placeholder="Вставь список, каждое дело с новой строки. Например:&#10;позвонить маме завтра 15м&#10;написать введение в пт 2ч !" aria-label="Список дел"></textarea>
       <div class="row" style="margin-top:10px;justify-content:space-between"><button class="btn ghost" data-act="bulk">Назад к одному делу</button><button class="btn primary" data-act="bulkadd">Добавить все</button></div>`
       :`<input type="text" id="qa" placeholder="Что нужно сделать? Можно просто тапать кнопки ниже" autocomplete="off" aria-label="Новое дело">
-      <div class="preview" id="pv"></div>${vBox()}
-      <div class="qg"><span class="lbl">Когда</span>${[['Сегодня','сегодня'],['Завтра','завтра'],['Послезавтра','послезавтра'],['Потом','потом']].map(([l,t])=>`<button class="qc" data-act="tok" data-t="${t}">${l}</button>`).join('')}</div>
-      <div class="qg"><span class="lbl">Во сколько</span>${[['Утром','10:00'],['Днём','14:00'],['Вечером','18:00']].map(([l,t])=>`<button class="qc" data-act="tok" data-t="${t}">${l}</button>`).join('')}</div>
+      <div class="preview" id="pv"></div><div id="rec"></div>${vBox()}
+      <div class="qg"><span class="lbl">Когда</span>${TK([['Сегодня','сегодня'],['Завтра','завтра'],['Послезавтра','послезавтра'],['Выходные','на выходные'],['Через неделю','через неделю'],['Потом','потом']])}<input type="date" id="qa-date" class="qd" min="${todayS()}" aria-label="Выбрать дату"></div>
+      <div class="qg"><span class="lbl">Срок до</span>${TK([['Завтра','до завтра'],['Пятницы','до пт'],['Конца недели','до конца недели'],['Конца месяца','до конца месяца']])}<input type="date" id="qa-due" class="qd" min="${todayS()}" aria-label="Выбрать срок сдачи"></div>
+      <div class="qg"><span class="lbl">Во сколько</span>${[['Утром','10:00'],['Днём','14:00'],['Вечером','18:00']].map(([l,t])=>`<button class="qc" data-act="tok" data-t="${t}">${l}</button>`).join('')}<input type="time" id="qa-time" class="qd" aria-label="Точное время"></div>
       <div class="qg"><span class="lbl">Сколько</span>${['15м','30м','1ч','2ч'].map(t=>`<button class="qc" data-act="tok" data-t="${t}">${t.replace('м',' мин').replace('ч',' ч')}</button>`).join('')}<button class="qc" data-act="tok" data-t="!">Важно</button></div>
       <div class="qg"><span class="lbl">Тег</span><div class="cats" id="cats">${Object.keys(CATS).map(k=>`<button data-act="cat" data-k="${k}" aria-pressed="${curCat===k}" style="color:${CATS[k].c}">${esc(CATS[k].n)}</button>`).join('')}<button data-act="tagmodal" aria-pressed="false" style="color:var(--accent)">+ Новый тег</button></div></div>
       <div class="row" style="margin-top:10px"><button class="btn sm ghost" data-act="qmore">${qOpen?'Меньше вариантов':'Частые дела и отдых'}</button></div>
       ${qOpen?`<div class="qg"><span class="lbl">Частые</span>${S.tpl.map(x=>`<span class="qc tpl"><button data-act="tpl" data-id="${x.id}">${esc(x.text.replace(/\s+\d+(м|ч)(\s|$)/,' ').replace(/#\S+/,'').trim())}</button><button class="x" data-act="tpldel" data-id="${x.id}" aria-label="Убрать из частых">×</button></span>`).join('')||'<span class="muted" style="font-size:13px">Пока нет. Добавь через «В частые».</span>'}</div>
       <div class="qg"><span class="lbl">Отдохнуть</span>${RESTS.map((r,i)=>`<button class="qc" data-act="rest" data-i="${i}" style="color:var(--c-rest)">${r[0]}</button>`).join('')}</div>
       `:''}
-      <div class="row" style="margin-top:12px"><button class="btn sm ghost" data-act="bulk">Вставить списком</button><button class="btn sm ${listening?'primary':''}" data-act="voice">${IC.mic} ${listening?'Стоп':'Голосом'}</button><button class="btn sm ghost" data-act="vparse">Разобрать</button><button class="btn sm ghost" data-act="tplsave">В частые</button><span class="grow"></span><button class="btn primary" data-act="add">Добавить</button></div>
-      <div class="hint muted">Лень писать? Нажми кнопки: они сами подставят дату, время и длительность. Тег я определяю по словам в деле («урок», «колледж», «уборка»), а ещё его можно выбрать вручную или написать #тег.</div>`}
+      <div class="row" style="margin-top:12px"><button class="btn sm ghost" data-act="bulk">Вставить списком</button><button class="btn sm ${listening?'primary':''}" data-act="voice">${IC.mic} ${listening?'Стоп':'Голосом'}</button><button class="btn sm ghost" data-act="vparse">Разобрать</button><button class="btn sm ghost" data-act="tplsave">В частые</button><button class="btn sm ghost" data-act="recnew">Когда лучше?</button><span class="grow"></span><button class="btn primary" data-act="add">Добавить</button></div>
+      <div class="hint muted">Лень писать? Нажми кнопки: они сами подставят дату, время и длительность. Срок сдачи: «до пт», «до 25.11» или строка «Срок до». Тег я определяю по словам в деле («урок», «колледж», «уборка»), а ещё его можно выбрать вручную или написать #тег.</div>`}
     </section>
     ${np&&np.t?`<section class="now fade"><div class="grow"><div class="eyebrow">${np.label}</div><h2>${esc(np.t.title)}</h2><div class="muted">${durLabel(np.t.dur)}</div></div>
       <button class="btn primary" data-act="five" data-id="${np.t.id}">Только 5 минут</button><button class="btn" data-act="toggle" data-id="${np.t.id}">Готово</button>${np.alt?'<button class="btn ghost" data-act="other">Другое</button>':''}</section>`
@@ -640,6 +667,7 @@ function vDay(){
       ${(()=>{const pr=[...new Set(list.map(t=>t.cat))];if(flt!=='all'&&!pr.includes(flt)&&CATS[flt])pr.push(flt);
         return (pr.length>1||flt!=='all')?`<div class="cats" style="margin-top:12px"><button data-act="flt" data-k="all" aria-pressed="${flt==='all'}">Все</button>${pr.filter(k=>CATS[k]).map(k=>`<button data-act="flt" data-k="${k}" aria-pressed="${flt===k}" style="color:${CATS[k].c}">${esc(CATS[k].n)}</button>`).join('')}<button data-act="tagmodal" aria-pressed="false" style="color:var(--accent)">+ Тег</button></div>`:''})()}
       ${od.length&&isT?`<div class="banner"><span>Со вчера осталось дел: ${od.length}. Это нормально, ничего страшного.</span><button class="btn sm" data-act="rollover">На сегодня</button><button class="btn sm ghost" data-act="release">В копилку</button></div>`:''}
+      ${isT?dueBanner():''}
       ${heavy?'<div class="banner"><span>Сегодня тяжело, и это нормально. Одно маленькое дело уже хороший день.</span></div>':''}
       ${(timedOpen.length||unOpen.length||doneShown.length)?`<div class="tl">
         ${timedOpen.map(t=>taskRow(t,{ov})).join('')}
@@ -650,10 +678,12 @@ function vDay(){
       ${hiddenUn.length?`<button class="btn sm ghost" data-act="more" style="margin-top:14px">${showRest?'Скрыть остальное':'Ещё дел: '+hiddenUn.length+'. Если будут силы'}</button>${showRest?'<div class="tl">'+hiddenUn.map(t=>taskRow(t,{ov})).join('')+'</div>':''}`:''}
       ${doneShown.length?`<div class="eyebrow group-title">Уже получилось · ${doneShown.length}</div><div class="tl">${doneShown.map(t=>taskRow(t,{ov})).join('')}</div>`:''}
     </section>
+    ${vAdvice()}
     ${vSchCard(sel)}
     ${vFree(fi,fp)}
   </div>
   <div class="stack">
+    ${vDue()}
     <section class="card"><div class="ringbox"><div class="ring"><svg width="104" height="104" viewBox="0 0 104 104"><circle cx="52" cy="52" r="44" fill="none" stroke="var(--soft)" stroke-width="10"/><circle cx="52" cy="52" r="44" fill="none" stroke="url(#g)" stroke-width="10" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C*(1-pct/100)}" style="transition:stroke-dashoffset .6s"/><defs><linearGradient id="g"><stop offset="0" stop-color="var(--accent2)"/><stop offset="1" stop-color="var(--accent)"/></linearGradient></defs></svg><b>${pct}%</b></div>
       <div><div class="eyebrow">Прогресс</div><div style="font-weight:600;margin:2px 0">${done.length} из ${list.length} дел</div>
       <div class="muted" style="font-size:13px">${open.length?'Осталось примерно '+durLabel(planMin):'Дел не осталось'}</div>
@@ -695,7 +725,8 @@ function vWeek(){
       <div class="bar"><i style="width:${pct}%;background:${col}"></i></div>
       ${show.slice(0,5).map(t=>`<button class="mini ${t.done?'done':''}" data-act="edit" data-id="${t.id}" style="text-align:left"><b style="font-variant-numeric:tabular-nums;color:var(--muted)">${t.time||'··'}</b><span>${esc(t.title)}</span></button>`).join('')}
       ${show.length>5?`<span class="muted" style="font-size:12px">и ещё ${show.length-5}</span>`:''}
-      ${!show.length?'<span class="muted" style="font-size:13px">Пока ничего</span>':''}</article>`}).join('')}</div>
+      ${S.tasks.filter(t=>t.due===d&&!t.done).map(t=>`<button class="mini" data-act="edit" data-id="${t.id}" style="text-align:left;background:#FFF0D6;color:#8A5A00"><b>⚑</b><span>срок: ${esc(t.title)}</span></button>`).join('')}
+      ${!show.length&&!S.tasks.some(t=>t.due===d&&!t.done)?'<span class="muted" style="font-size:13px">Пока ничего</span>':''}</article>`}).join('')}</div>
   ${(()=>{const wk=days.flatMap(dayTasks),tot=wk.reduce((x,t)=>x+t.dur,0),rs=wk.filter(t=>t.cat==='rest').reduce((x,t)=>x+t.dur,0),pc=tot?Math.round(rs/tot*100):0;
     return `<section class="card" style="margin-top:20px"><div class="eyebrow">Баланс недели</div><div class="row" style="margin:10px 0"><div class="bar grow" style="height:12px"><i style="width:${pc}%;background:var(--c-rest)"></i></div><b>${pc}% отдыха</b></div>
     <div class="muted">${tot<300?'Пока планов немного.':pc<15?'Отдыха в неделе мало. Поставь пару приятных дел: прогулку, друзей, сон.':'Хороший баланс. Так проще не выгореть.'}</div></section>`})()}
@@ -775,18 +806,18 @@ function toast(msg,undo){
   clearTimeout(toastT);toastT=setTimeout(()=>d.remove(),undo?5500:3200);
 }
 function updatePreview(){
-  const el=$('#qa'),pv=$('#pv');if(!el||!pv)return;
+  const el=$('#qa'),pv=$('#pv');if(!el||!pv)return;if(REC){REC=null;const rb=$('#rec');if(rb)rb.innerHTML=''}
   const v=el.value.trim();if(!v){pv.innerHTML='';return}
   const p=parseQuick(v);
   pv.innerHTML=(p.title?'':'<span class="chip muted">нужно название</span>')+
     `<span class="chip">${p.date?(p.date===todayS()?'сегодня':shortDate(p.date)):'в копилку'}</span>`+
-    (p.time?`<span class="chip">${p.time}</span>`:'')+`<span class="chip">${p.src?'≈ ':''}${durLabel(p.dur)}${p.src?' · '+p.src:''}</span>`+(p.src&&p.dur>15?`<button class="qc" data-act="tok" data-t="${p.dur-15}м">−15</button>`:'')+(p.src?`<button class="qc" data-act="tok" data-t="${p.dur+15}м">+15</button>`:'')+
+    (p.time?`<span class="chip">${p.time}</span>`:'')+(p.due?`<span class="chip warnchip">⚑ срок: ${p.due===todayS()?'сегодня':shortDate(p.due)}</span>`:'')+`<span class="chip">${p.src?'≈ ':''}${durLabel(p.dur)}${p.src?' · '+p.src:''}</span>`+(p.src&&p.dur>15?`<button class="qc" data-act="tok" data-t="${p.dur-15}м">−15</button>`:'')+(p.src?`<button class="qc" data-act="tok" data-t="${p.dur+15}м">+15</button>`:'')+
     (p.prio===3?'<span class="chip" style="color:var(--accent)">важно</span>':'')+catChip(p.cat||curCat);
 }
 function addFromQuick(){
   const el=$('#qa');if(!el)return;
   const p=parseQuick(el.value);if(!p.title){toast('Напиши, что нужно сделать');el.focus();return}
-  S.tasks.push({id:uid(),title:p.title,cat:p.cat||curCat,date:p.date,time:p.time,dur:p.dur,prio:p.prio,done:false});
+  S.tasks.push({id:uid(),title:p.title,cat:p.cat||curCat,date:p.date,time:p.time,dur:p.dur,prio:p.prio,due:p.due||null,done:false});
   save();render();toast(p.date?'Добавлено на '+(p.date===todayS()?'сегодня':shortDate(p.date)):'Убрала в копилку');
   const q=$('#qa');if(q)q.focus();
 }
@@ -796,6 +827,10 @@ function openModal(id){
     <h3 style="font-size:18px">Дело</h3>
     <label>Название<input type="text" id="m-title" value="${esc(t.title)}"></label>
     <div class="grid2"><label>Дата<input type="date" id="m-date" value="${t.date||''}"></label><label>Время<input type="time" id="m-time" value="${t.time||''}"></label></div>
+    ${(()=>{const L=recommend(t).slice(0,3);return L.length?'<div class="qg" style="margin-top:-4px"><span class="lbl">Лучше</span>'+L.map(x=>`<button type="button" class="qc" data-act="mrec" data-d="${x.d}" data-t="${fromM(x.start)}" style="color:var(--good)">${esc(cap(dLabel(x.d)))} ${fromM(x.start)}</button>`).join('')+'</div>':''})()}
+    <div class="qg" style="margin-top:-4px"><span class="lbl">Дата</span>${[['Сегодня',0],['Завтра',1],['Через неделю',7],['В копилку','']].map(([l,n])=>`<button type="button" class="qc" data-act="mset" data-f="m-date" data-n="${n}">${l}</button>`).join('')}</div>
+    <label>Срок сдачи (дедлайн)<input type="date" id="m-due" value="${t.due||''}"></label>
+    <div class="qg" style="margin-top:-4px"><span class="lbl">Срок</span>${[['Завтра',1],['Через 3 дня',3],['Через неделю',7],['Убрать','']].map(([l,n])=>`<button type="button" class="qc" data-act="mset" data-f="m-due" data-n="${n}">${l}</button>`).join('')}</div>
     <div class="grid2"><label>Минут<input type="number" id="m-dur" min="5" step="5" value="${t.dur}"></label>
     <label>Важность<select id="m-prio"><option value="1" ${t.prio===1?'selected':''}>Обычное</option><option value="2" ${t.prio===2?'selected':''}>Нужное</option><option value="3" ${t.prio===3?'selected':''}>Важное</option></select></label></div>
     <label>Сфера<select id="m-cat">${Object.keys(CATS).map(k=>`<option value="${k}" ${t.cat===k?'selected':''}>${CATS[k].n}</option>`).join('')}</select></label>
@@ -831,6 +866,56 @@ setInterval(()=>{
   if(view==='focus'){const a=$('#tt'),c=$('#tc');if(a)a.textContent=fmtT(Math.ceil(T.left));if(c){const C=2*Math.PI*118;c.setAttribute('stroke-dashoffset',C*(1-T.left/T.total))}}
 },250);
 
+/* ---------- подбор времени: когда лучше сделать дело ---------- */
+let REC=null,WH=null;
+const PREF={study:630,tutor:900,work:720,home:1080,me:1020,rest:1140};
+const cap=x=>x?x[0].toUpperCase()+x.slice(1):x;
+const dLabel=d=>{const n=dueIn(d);return n===0?'сегодня':n===1?'завтра':n===2?'послезавтра':WD[parseD(d).getDay()]+', '+shortDate(d)};
+const sLabel=x=>cap(dLabel(x.d))+', '+fromM(x.start)+'–'+fromM(x.end);
+function recommend(t,o){o=o||{};const today=todayS(),dur=Math.max(5,t.dur||30),ex=t.id,pref0=PREF[t.cat]||720;
+  let first=today,last=addDays(today,13);
+  if(o.day){first=last=o.day}else if(t.due){last=t.due<today?today:(t.due<last?t.due:last)}
+  const out=[];
+  for(let d=first,i=0;d<=last;d=addDays(d,1),i++){
+    if(d<today||S.heavy[d])continue;
+    const fi=freeInfo(d,ex,o.extra);if(fi.over||fi.total<dur)continue;
+    const sb=schBlocks(d),away=sb.filter(b=>b.k!=='prep').reduce((x,b)=>x+b.b-b.a,0);
+    const load=dayTasks(d).filter(x=>!x.done&&x.id!==ex).reduce((x,y)=>x+y.dur,0)+away;
+    const en=mood(d).energy,pref=dur>=120?600:(dur<=20?0:pref0);let best=null;
+    for(const w of fi.windows){
+      const lo=w[0]>fi.start?w[0]+10:w[0],hi=Math.min(w[1],1350)-dur;if(hi<lo)continue;
+      let st=pref?Math.min(hi,Math.max(lo,pref)):lo;st=Math.min(hi,Math.ceil(st/5)*5);if(st<lo)continue;
+      let sc=100-i*(t.prio===3?5:3)-load/60*4-(pref?Math.abs(st-pref)/15:0);
+      if(t.due&&d===t.due)sc-=10;if(t.date===d)sc+=8;
+      if(en===1&&dur>=60)sc-=25;if(en===3&&dur>=60)sc+=5;
+      if(away>=420&&(dur>=60||st>=1080))sc-=20;
+      if(dur>=90&&st>=1140)sc-=15;
+      if(dur<=30&&w[1]-w[0]<=90)sc+=4;
+      if(!best||sc>best.sc)best={d,start:st,end:st+dur,sc,w,i,load,sb,en}
+    }
+    if(best)out.push(best)
+  }
+  out.sort((a,b)=>b.sc-a.sc);const r=out.slice(0,4);r.forEach(x=>{x.why=whyRec(x,t,dur)});return r}
+function whyRec(x,t,dur){const r=[],due=t.due?dueIn(t.due)-x.i:null;
+  if(due!==null)r.push(due>=1?'за '+due+' дн. до срока, с запасом':'в день срока, впритык');
+  const bk=x.sb.find(b=>b.k==='back');if(bk&&x.start>=bk.b)r.push('после пар и дороги');
+  if(x.load<=120)r.push('день лёгкий');else if(x.load>=360)r.push('день плотный, но окно есть');
+  if(x.start<720&&dur>=45&&(t.cat==='study'||t.cat==='work'))r.push('утром голова свежее');
+  if(x.en===3)r.push('много сил');
+  if(x.d===todayS()&&!r.length)r.push('успеешь сегодня');
+  return cap((r.length?r:['свободное окно '+fromM(x.w[0])+'–'+fromM(x.w[1])]).slice(0,2).join(' · '))}
+const noSlot=m=>'Нет окна на '+durLabel(m)+' в ближайшие 2 недели. Можно сократить дело или освободить время.';
+function recList(list,act,id){return list.map((x,i)=>`<div class="li"><span><b>${esc(sLabel(x))}</b>${i===0?' <span class="chip" style="color:var(--good)">лучше всего</span>':''}<br><span class="muted" style="font-size:12px">${esc(x.why)}</span></span><button type="button" class="btn sm ${i===0?'primary':''}" data-act="${act}" data-i="${i}" ${id?'data-id="'+id+'"':''}>Поставить</button></div>`).join('')}
+function adviceItems(){const today=todayS(),ex=[],res=[];
+  const c=S.tasks.filter(t=>!t.done&&!t.time&&!t.example&&t.cat!=='rest'&&(!t.date||t.date<=addDays(today,1))).sort((a,b)=>{const x=a.due||'9',y=b.due||'9';return x<y?-1:x>y?1:b.prio-a.prio});
+  for(const t of c){if(res.length>=3)break;const l=recommend(t,{extra:ex,day:t.date&&t.date>=today?t.date:undefined});
+    if(l[0]){ex.push({d:l[0].d,a:l[0].start,b:l[0].end+10});res.push({t,s:l[0]})}}
+  return res}
+function vAdvice(){if(sel!==todayS()||S.heavy[sel])return '';const a=adviceItems();if(!a.length)return '';
+  return `<section class="card"><h3 style="font-size:18px">Когда лучше сделать</h3><div class="muted" style="font-size:13px;margin-top:4px">Подобрала по парам, свободным окнам, срокам и твоим силам.</div><div class="stack" style="gap:8px;margin-top:12px">${a.map(({t,s:x})=>`<div class="li" style="align-items:flex-start"><span><b>${esc(t.title)}</b> <span class="muted">· ${durLabel(t.dur)}</span><br><span style="font-size:13px">→ ${esc(sLabel(x))}</span><br><span class="muted" style="font-size:12px">${esc(x.why)}</span></span><span class="stack" style="gap:6px"><button class="btn sm primary" data-act="advok" data-id="${t.id}" data-d="${x.d}" data-t="${fromM(x.start)}">Поставить</button><button class="btn sm ghost" data-act="when" data-id="${t.id}">Другие</button></span></div>`).join('')}</div></section>`}
+function openWhen(){const t=S.tasks.find(x=>x.id===WH.id);if(!t)return;
+  $('#layer').innerHTML=`<div class="scrim" data-act="closeModal"><div class="modal"><h3 style="font-size:18px">Когда сделать</h3><div><b>${esc(t.title)}</b> <span class="muted">· ${durLabel(t.dur)}${t.due?' · срок '+shortDate(t.due):''}</span></div>${WH.list.length?`<div class="stack" style="gap:8px">${recList(WH.list,'recapply',t.id)}</div>`:`<div class="muted">${noSlot(t.dur)}</div>`}<div class="row" style="justify-content:flex-end"><button type="button" class="btn" data-act="closeModal">Закрыть</button></div></div></div>`}
+
 /* ---------- события ---------- */
 document.addEventListener('click',e=>{
   const el=e.target.closest('[data-act]');if(!el)return;
@@ -843,9 +928,10 @@ document.addEventListener('click',e=>{
     case 'openday':sel=el.dataset.d;view='day';render();window.scrollTo(0,0);break;
     case 'cat':curCat=el.dataset.k;S.lastCat=curCat;save();
       document.querySelectorAll('#cats button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.k===curCat));updatePreview();break;
+    case 'mset':{const f=$('#'+el.dataset.f);if(f)f.value=el.dataset.n===''?'':addDays(todayS(),+el.dataset.n);break}
     case 'add':addFromQuick();break;
     case 'tok':{const q=$('#qa');if(q){q.value=(q.value.trim()+' '+el.dataset.t).trim();q.focus();updatePreview()}break}
-    case 'tpl':{const x=S.tpl.find(z=>z.id===id);if(x){const p=parseQuick(x.text);S.tasks.push({id:uid(),title:p.title,cat:p.cat||curCat,date:sel,time:null,dur:p.dur,prio:p.prio,done:false});save();render();toast('Добавлено: '+p.title)}break}
+    case 'tpl':{const x=S.tpl.find(z=>z.id===id);if(x){const p=parseQuick(x.text);S.tasks.push({id:uid(),title:p.title,cat:p.cat||curCat,date:sel,time:null,dur:p.dur,prio:p.prio,due:p.due||null,done:false});save();render();toast('Добавлено: '+p.title)}break}
     case 'tpldel':S.tpl=S.tpl.filter(z=>z.id!==id);save();render();break;
     case 'tplsave':{const q=$('#qa');const p=parseQuick(q?q.value:'');if(!p.title){toast('Сначала напиши дело');break}
       S.tpl.push({id:uid(),text:p.title+' '+p.dur+'м #'+catWord(p.cat||curCat)});save();render();toast('Сохранила в частые');break}
@@ -860,7 +946,7 @@ document.addEventListener('click',e=>{
     case 'vparse':{const q=$('#qa');if(q&&q.value.trim()){draftFromVoice(q.value);q.value='';render()}else toast('Сначала надиктуй или напиши дела в строку');break}
     case 'vdel':VD.splice(+el.dataset.i,1);if(!VD.length)VD=null;render();break;
     case 'vno':VD=null;render();break;
-    case 'vok':{const ds=new Set();VD.forEach(p=>{S.tasks.push({id:uid(),title:p.title,cat:p.cat||curCat,date:p.date,time:p.time,dur:p.dur,prio:p.prio,done:false});if(p.date)ds.add(p.date)});
+    case 'vok':{const ds=new Set();VD.forEach(p=>{S.tasks.push({id:uid(),title:p.title,cat:p.cat||curCat,date:p.date,time:p.time,dur:p.dur,prio:p.prio,due:p.due||null,done:false});if(p.date)ds.add(p.date)});
       const n=VD.length;VD=null;ds.forEach(d=>autoPlan(d));save();render();toast('Добавила и разложила по свободному времени: '+n);break}
     case 'schcopy':{const a=S.sch.days[1];if(a){[2,3,4,5].forEach(d=>S.sch.days[d]=a.slice());save();render();toast('Будни как в понедельник')}else toast('Сначала заполни понедельник');break}
     case 'remtog':S.sch.rem=!S.sch.rem;save();render();break;
@@ -877,7 +963,7 @@ document.addEventListener('click',e=>{
     case 'five':T={mode:'focus',total:300,left:300,end:Date.now()+300000,running:true,taskId:id};view='focus';render();window.scrollTo(0,0);toast('Всего пять минут. Потом можно остановиться.');break;
     case 'rest':{const r=RESTS[+el.dataset.i];S.tasks.push({id:uid(),title:r[0],cat:'rest',date:sel,time:null,dur:r[1],prio:1,done:false});save();render();toast('Добавила отдых: '+r[0]);break}
     case 'bulkadd':{const lines=($('#bulk').value||'').split('\n').map(x=>x.trim()).filter(Boolean);let n=0;
-      lines.forEach(l=>{const p=parseQuick(l);if(p.title){S.tasks.push({id:uid(),title:p.title,cat:p.cat||curCat,date:p.date,time:p.time,dur:p.dur,prio:p.prio,done:false});n++}});
+      lines.forEach(l=>{const p=parseQuick(l);if(p.title){S.tasks.push({id:uid(),title:p.title,cat:p.cat||curCat,date:p.date,time:p.time,dur:p.dur,prio:p.prio,due:p.due||null,done:false});n++}});
       if(!n){toast('Список пустой');break}bulk=false;save();render();toast('Добавлено дел: '+n);break}
     case 'actual':{const m=+el.dataset.m;if(task&&m>0){S.hist.push({k:stems(task.title).sort().join(' '),min:m,plan:task.dur});if(S.hist.length>300)S.hist=S.hist.slice(-300);save();toast('Запомнила: '+durLabel(m))}closeAsk();break}
     case 'actualx':closeAsk();break;
@@ -892,6 +978,16 @@ document.addEventListener('click',e=>{
     case 'joyadd':{const i=$('#joy-in'),v=i.value.trim();if(!v){i.focus();break}S.joy.push({id:uid(),text:v});save();render();break}
     case 'joydel':S.joy=S.joy.filter(x=>x.id!==id);save();render();break;
     case 'joypick':if(S.joy.length){joyShown=S.joy[Math.floor(Math.random()*S.joy.length)].text;render()}else toast('Сначала добавь что-нибудь приятное');break;
+    case 'advok':if(task){task.date=el.dataset.d;task.time=el.dataset.t;save();render();toast('Поставила: '+dLabel(task.date)+' в '+task.time)}break;
+    case 'when':if(task){WH={id:task.id,list:recommend(task)};openWhen()}break;
+    case 'recapply':{const x=WH&&WH.list[+el.dataset.i];if(task&&x){task.date=x.d;task.time=fromM(x.start);save();closeModal();render();toast('Поставила: '+dLabel(x.d)+' в '+fromM(x.start))}break}
+    case 'mrec':{const a=$('#m-date'),b=$('#m-time');if(a&&b){a.value=el.dataset.d;b.value=el.dataset.t}break}
+    case 'recnew':{const q=$('#qa'),b=$('#rec');if(!q||!b)break;const p=parseQuick(q.value);if(!p.title){toast('Сначала напиши дело');q.focus();break}
+      const l=recommend({title:p.title,cat:p.cat||curCat,dur:p.dur,prio:p.prio,due:p.due});REC={p,list:l};
+      b.innerHTML=`<div class="stack" style="gap:8px;margin-top:12px"><div class="eyebrow">Лучшее время для «${esc(p.title.slice(0,40))}»</div>${l.length?recList(l,'recpick'):'<div class="muted">'+noSlot(p.dur)+'</div>'}</div>`;break}
+    case 'recpick':{const x=REC&&REC.list[+el.dataset.i];if(!x)break;const p=REC.p;
+      S.tasks.push({id:uid(),title:p.title,cat:p.cat||curCat,date:x.d,time:fromM(x.start),dur:p.dur,prio:p.prio,due:p.due||null,done:false});
+      REC=null;const q=$('#qa');if(q)q.value='';save();render();toast('Поставила: '+dLabel(x.d)+' в '+fromM(x.start));break}
     case 'edit':openModal(id);break;
     case 'closeModal':if(el.classList.contains('scrim')&&e.target!==el)break;closeModal();break;
     case 'del':lastDel=task||null;S.tasks=S.tasks.filter(t=>t.id!==id);save();closeModal();render();toast('Дело удалено',!!lastDel);break;
@@ -923,7 +1019,7 @@ document.addEventListener('click',e=>{
 });
 document.addEventListener('change',e=>{if(e.target.id!=='imp-file')return;const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const o=JSON.parse(r.result);if(!o||!Array.isArray(o.tasks))throw 0;if(!confirm('Заменить текущие данные копией из файла?'))return;S=o;save();location.reload()}catch(er){toast('Это не похоже на копию «Моего ритма»')}};r.readAsText(f)});
 let pvT=null;document.addEventListener('input',e=>{if(e.target.id==='qa'){clearTimeout(pvT);pvT=setTimeout(updatePreview,120)}});
-document.addEventListener('change',e=>{const FW={'fw-from':'from','fw-to':'to','fw-res':'res'};
+document.addEventListener('change',e=>{if(QD(e))return;const FW={'fw-from':'from','fw-to':'to','fw-res':'res'};
   if(FW[e.target.id]){S.day[FW[e.target.id]]=e.target.id==='fw-res'?Math.max(0,+e.target.value||0):(e.target.value||S.day[FW[e.target.id]]);save();render();return}
   if(e.target.id==='rw'){S.reward.text=e.target.value.trim();save()}
   if(e.target.id==='tsel')T.taskId=e.target.value||null});
@@ -937,8 +1033,8 @@ document.addEventListener('submit',e=>{
   if(e.target.id!=='mf')return;e.preventDefault();
   const t=S.tasks.find(x=>x.id===e.target.dataset.id);if(!t)return;
   const title=$('#m-title').value.trim();if(!title){toast('Название не может быть пустым');return}
-  t.title=title;t.date=$('#m-date').value||null;t.time=$('#m-time').value||null;t.dur=Math.max(5,+$('#m-dur').value||30);t.prio=+$('#m-prio').value;t.cat=$('#m-cat').value;
-  save();closeModal();render();
+  t.title=title;t.date=$('#m-date').value||null;t.time=$('#m-time').value||null;t.due=$('#m-due').value||null;t.dur=Math.max(5,+$('#m-dur').value||30);t.prio=+$('#m-prio').value;t.cat=$('#m-cat').value;
+  save();closeModal();render();if(t.due&&t.date&&t.date>t.due)toast('Дело стоит позже срока. Подвинь дату, если нужно');
 });
 render();
 })();
