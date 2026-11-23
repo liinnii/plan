@@ -212,7 +212,12 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
 @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 @media (max-width:560px){
   .task{grid-template-columns:auto minmax(0,1fr)}
-  .task>.btn,.task>.tact{grid-column:2;justify-self:start}
+  .task>.subs{grid-column:2;display:flex;flex-direction:column;gap:2px;margin-top:-2px}
+.subrow{display:flex;gap:10px;align-items:flex-start;text-align:left;padding:6px 0;min-height:36px;font-size:14px;color:var(--ink)}
+.subbox{flex:none;width:22px;height:22px;border-radius:7px;border:2px solid var(--accent);display:grid;place-items:center;font-size:14px;font-weight:700;color:#fff;margin-top:1px}
+.subrow.sdone .subbox{background:var(--accent)}
+.subrow.sdone .subtx{text-decoration:line-through;opacity:.55}
+.task>.btn,.task>.tact{grid-column:2;justify-self:start}
   .task>button[data-act="edit"]{flex-direction:column;gap:2px!important}
   .card h3.grow{flex:1 1 100%}
   .qa .cats{flex:1 1 100%}
@@ -664,8 +669,9 @@ function taskRow(t,opts={}){
     <button data-act="edit" data-id="${t.id}" style="min-width:0;display:flex;gap:12px;align-items:flex-start;text-align:left">
       <span class="time">${t.time?t.time+'<br><span style="font-weight:500;font-size:12px">до '+endT(t)+'</span>':'—'}</span>
       <span style="min-width:0"><span class="tt">${esc(t.title)}</span>
-      <span class="meta">${catChip(t.cat)}<span class="chip">${durLabel(t.dur)}</span>${t.rep?`<span class="chip">↻ ${t.rep.i}/${t.rep.n}</span>`:''}${dueChip(t)}${t.prio===3?'<span class="chip" style="color:var(--accent)">важно</span>':''}${ov?'<span class="chip warnchip">пересекается</span>':''}${t.example?'<span class="chip muted">пример</span>':''}</span></span>
+      <span class="meta">${catChip(t.cat)}<span class="chip">${durLabel(t.dur)}</span>${t.rep?`<span class="chip">↻ ${t.rep.i}/${t.rep.n}</span>`:''}${(t.subs&&t.subs.length)?`<span class="chip">шаги ${t.subs.filter(x=>x.d).length}/${t.subs.length}</span>`:''}${dueChip(t)}${t.prio===3?'<span class="chip" style="color:var(--accent)">важно</span>':''}${ov?'<span class="chip warnchip">пересекается</span>':''}${t.example?'<span class="chip muted">пример</span>':''}</span></span>
     </button>
+    ${(t.subs&&t.subs.length)?`<div class="subs">${t.subs.map((x,i)=>`<button type="button" class="subrow ${x.d?'sdone':''}" data-act="subtoggle" data-id="${t.id}" data-i="${i}" aria-pressed="${!!x.d}"><span class="subbox">${x.d?'✓':''}</span><span class="subtx">${esc(x.t)} <span class="muted">· ${durLabel(x.m)}</span></span></button>`).join('')}</div>`:''}
     <div class="tact">${!t.done&&!t.time&&!t.example?`<button class="btn sm ghost" data-act="when" data-id="${t.id}">Когда?</button>`:''}${!t.done&&!t.example?`<button class="btn sm ghost" data-act="apstart" data-id="${t.id}">5 мин: доделать</button>`:''}<button class="btn sm ghost" data-act="focusTask" data-id="${t.id}" aria-label="Запустить фокус">Фокус</button><button class="xdel" data-act="del" data-id="${t.id}" aria-label="Удалить дело">×</button></div>
   </div>`;
 }
@@ -1213,6 +1219,7 @@ document.addEventListener('click',e=>{
     case 'actual':{const m=+el.dataset.m;if(task&&m>0){S.hist.push({k:stems(task.title).sort().join(' '),min:m,plan:task.dur});if(S.hist.length>300)S.hist=S.hist.slice(-300);save();toast('Запомнила: '+durLabel(m))}closeAsk();break}
     case 'actualx':closeAsk();break;
     case 'export':{try{const b=new Blob([JSON.stringify(S)],{type:'application/json'}),u=URL.createObjectURL(b),x=document.createElement('a');x.href=u;x.download='moi-ritm-'+todayS()+'.json';document.body.appendChild(x);x.click();x.remove();setTimeout(()=>URL.revokeObjectURL(u),1000);toast('Копия сохранена в файл')}catch(er){toast('Не получилось сохранить файл')}break}
+    case 'subtoggle':{const x=task&&task.subs&&task.subs[+el.dataset.i];if(x){x.d=!x.d;save();render();if(x.d&&task.subs.every(z=>z.d))toast('Все шаги сделаны. Можно отметить дело целиком.')}break}
     case 'toggle':if(task){if(!task.done&&needCheck(task)){openCheck(task.id);break}flip(task,e)}break;
     case 'ckdone':{closeModal();if(task){task.check=[...document.querySelectorAll('#ck input')].map(x=>x.checked);flip(task,e)}break}
     case 'carestart':openCare(overdue().map(t=>t.id));break;
@@ -1244,8 +1251,8 @@ document.addEventListener('click',e=>{
     case 'aisplitok':{const t=AIS&&S.tasks.find(x=>x.id===AIS.id);if(!t)break;
       const pick=[...document.querySelectorAll('#ais input:checked')].map(x=>AIS.steps[+x.dataset.i]).filter(Boolean);
       if(!pick.length){toast('Выбери хотя бы один шаг');break}
-      pick.forEach((x,i)=>S.tasks.push({id:uid(),title:(i+1)+'/'+pick.length+' '+x.t,cat:t.cat,date:t.date||todayS(),time:null,dur:x.m,prio:t.prio,due:t.due||null,done:false}));
-      AIS=null;save();closeModal();render();toast('Добавила шагов: '+pick.length);break}
+      t.subs=(t.subs||[]).concat(pick.map(x=>({t:x.t,m:x.m,d:false})));
+      AIS=null;save();closeModal();render();toast('Шаги добавлены внутрь дела: '+pick.length);break}
     case 'edit':openModal(id);break;
     case 'lazyuse':{const c=S.lazy.credit;if(c<1)break;S.lazy.credit=0;save();mtOpen({title:'Легальная лень',sub:'Ты это заработала. Дела подождут: никакой почты и никаких «чуть-чуть доделать».',sec:c*60,btn:'Вернуться',onEnd:(early,l)=>{if(early)S.lazy.credit+=Math.floor(l/60);save();if(view==='joy')render();toast(early?'С возвращением. Остаток отдыха сохранила.':'Отдых закончился. Мягко возвращаемся.')}});break}
     case 'spin':rlPick();render();break;
