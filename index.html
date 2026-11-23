@@ -945,8 +945,9 @@ let AIS=null;
 const AIK='ritm-ai';
 const aiCfg=()=>{try{return JSON.parse(localStorage.getItem(AIK))||{}}catch(e){return {}}};
 async function callAI(prompt){
-  const c=aiCfg(),list=[(c.model||'').trim(),'gemini-2.5-flash-lite','gemini-flash-latest','gemini-2.5-flash','gemini-3.1-flash-lite'].filter((m,i,a)=>m&&a.indexOf(m)===i);
+  const c=aiCfg(),list=[(c.model||'').trim(),'gemini-2.5-flash-lite','gemini-flash-latest','gemini-2.5-flash','gemini-3.1-flash-lite','gemini-2.0-flash','gemini-2.0-flash-lite'].filter((m,i,a)=>m&&a.indexOf(m)===i);
   let last={code:404};
+  for(let round=0;round<4;round++){
   for(const model of list){
     let r;
     try{r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(model)+':generateContent',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':c.key},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{responseMimeType:'application/json',temperature:0.4}})})}
@@ -956,6 +957,9 @@ async function callAI(prompt){
     const j=await r.json(),t=(((j.candidates||[])[0]||{}).content||{}).parts;
     const txt=(t||[]).map(p=>p.text||'').join('').replace(/```json|```/g,'').trim();
     return JSON.parse(txt);
+  }
+  if(last.code!==503&&last.code!==500)break;
+  await new Promise(r=>setTimeout(r,2500*(round+1)));
   }
   throw last;
 }
@@ -988,7 +992,7 @@ async function aiSplit(id){
   }catch(err){
     if(!AIS||AIS.id!==id)return;
     const c=err&&err.code;
-    AIS={id,err:c===429?'Лимит запросов исчерпан. Подожди минуту и попробуй снова.':c===400||c===403?'Google не принял ключ. Проверь ключ в настройках ИИ.':c===404?'Такой модели нет. Проверь название модели в настройках ИИ.':c==='network'?'Нет связи с сервисом ИИ. Проверь интернет.':'Не получилось получить ответ. Попробуй ещё раз.'};if(err&&err.msg)AIS.err+=' [Google: '+err.code+' — '+String(err.msg).slice(0,200)+']';
+    AIS={id,err:c===429?'Лимит запросов исчерпан. Подожди минуту и попробуй снова.':c===400||c===403?'Google не принял ключ. Проверь ключ в настройках ИИ.':c===404?'Такой модели нет. Проверь название модели в настройках ИИ.':c==='network'?'Нет связи с сервисом ИИ. Проверь интернет.':'Не получилось получить ответ. Попробуй ещё раз.'};if(err&&err.msg)AIS.err+=' [v3, Google: '+err.code+' — '+String(err.msg).slice(0,200)+']';
   }
   aiPaint();
 }
