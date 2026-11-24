@@ -405,6 +405,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
 .cfidea{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:14px;background:var(--surface);border:1px solid var(--line)}
 .cfidea span{flex:1;min-width:0}
 .cft{padding:8px 12px;border-radius:12px;background:var(--soft);font-size:13px}
+.btn[disabled]{opacity:.5;cursor:default;transform:none}
 .grid2>label{min-width:0}.grid2 input[type=date]{min-width:0;max-width:100%;box-sizing:border-box}
 </style>
 <script>
@@ -806,7 +807,7 @@ function nextLesson(subj){const les=(S.sch&&S.sch.les)||{},s=(subj||'').trim().t
 function hwInfo(h){
   const ts=S.tasks.filter(t=>t.hwId===h.id),open=ts.filter(t=>!t.done).sort((a,b)=>(a.date+(a.time||''))<(b.date+(b.time||''))?-1:1);
   const doneMin=ts.filter(t=>t.done).reduce((x,t)=>x+t.dur,0);
-  return {open,doneMin,fin:!!h.done||(ts.length>0&&!open.length&&doneMin>=h.min)};
+  return {open,doneMin,fin:!!h.done||(!h.re&&ts.length>0&&!open.length&&doneMin>=h.min)};
 }
 function hwDue(h){const n=dueIn(h.due);return {n,cls:n<=1?'warnchip':'duecalm',txt:n<0?'срок был '+shortDate(h.due):n===0?'срок сегодня':n===1?'срок завтра':'до '+shortDate(h.due)+' · '+n+' дн.'}}
 // раскладывает домашку кусками по свободным окнам от сегодня до срока
@@ -870,7 +871,7 @@ function hwDetail(h){
         <div class="sl-grid">${canOcr?`<button type="button" class="btn sm" data-hw="ocr" data-id="${h.id}"${HS.ocr||busy?' disabled':''}>${h.txt?'Прочитать заново':'Прочитать текст'}</button>`:''}${th.length<4?`<label class="btn sm" style="cursor:pointer">+ Фото<input type="file" data-phf="${h.id}" accept="image/*" multiple hidden></label>`:''}${fl.length<3?`<label class="btn sm" style="cursor:pointer">+ Файл<input type="file" data-flf="${h.id}" accept="${HWF}" multiple hidden></label>`:''}</div></div>
       ${sol?`<div class="sl-sec"><div class="sl-sh">Решение</div>${hsBody(sol,h.id)}<div class="sl-grid sl-grid2"><button type="button" class="btn sm primary" data-sl="pickall" data-id="${h.id}">Все в «Решения»</button><button type="button" class="btn sm" data-hw="copy" data-id="${h.id}">Копировать</button></div></div>`:''}
       <div class="sl-sec"><div class="sl-sh">Срок</div><label><input type="date" data-hwdue="${h.id}" value="${h.due}"></label></div>
-      <div class="sl-grid sl-grid2"><button type="button" class="btn sm primary" data-hw="done" data-id="${h.id}">✓ Готово</button><button type="button" class="btn sm ghost" data-hw="del" data-id="${h.id}" style="color:var(--bad)">Удалить</button></div>
+      <div class="sl-grid sl-grid2">${i.fin?`<button type="button" class="btn sm primary" data-hw="reopen" data-id="${h.id}">↩ Вернуть в работу</button>`:`<button type="button" class="btn sm primary" data-hw="done" data-id="${h.id}">✓ Готово</button>`}<button type="button" class="btn sm ghost" data-hw="del" data-id="${h.id}" style="color:var(--bad)">Удалить</button></div>
     </div></section></div>`;
 }
 function hwNewForm(){
@@ -894,7 +895,7 @@ function hwListHtml(act,un,tot,fin){
   '<div class="sl-tabs flat" role="group"><button type="button" data-hw="view" data-v="date" aria-selected="'+(S.hwv!=='subj')+'">По срокам</button><button type="button" data-hw="view" data-v="subj" aria-selected="'+(S.hwv==='subj')+'">По предметам</button></div>'+
   (un.length?'<div class="banner" style="margin:0"><span>Не в плане: '+un.length+'. Могу разложить всё по свободному времени, начиная с ближайших сроков.</span><button type="button" class="btn sm primary" data-hw="planall">Распределить всё</button></div>':'')+
   hwGroupsHtml(act)+hwFin(fin)+vHsOld()}
-function hwFin(fin){return fin.length?'<details class="card flat sl-dl" data-keep="hwfin"'+kopen('hwfin')+'><summary>Уже сделано · '+fin.length+'</summary><div class="stack" style="gap:8px;padding:0 16px 16px">'+fin.map(x=>'<div class="li"><span><b>'+esc(x.h.subj)+'</b>'+(x.h.title?' <span class="muted">· '+esc(x.h.title)+'</span>':'')+'</span><button type="button" class="btn sm ghost" data-hw="del" data-id="'+x.h.id+'">Убрать</button></div>').join('')+'</div></details>':''}
+function hwFin(fin){return fin.length?'<details class="card flat sl-dl" data-keep="hwfin"'+kopen('hwfin')+'><summary>Уже сделано · '+fin.length+'</summary><div class="stack" style="gap:8px;padding:0 16px 16px">'+fin.map(x=>'<div class="li" style="gap:6px"><button type="button" data-hw="hopen" data-id="'+x.h.id+'" style="text-align:left;min-width:0;flex:1;overflow-wrap:anywhere"><b>'+esc(x.h.subj)+'</b>'+(x.h.title?' <span class="muted">· '+esc(x.h.title)+'</span>':'')+'</button><button type="button" class="btn sm" data-hw="reopen" data-id="'+x.h.id+'">Вернуть</button><button type="button" class="btn sm ghost" data-hw="del" data-id="'+x.h.id+'">Убрать</button></div>').join('')+'</div></details>':''}
 function vHw(){
   const all=S.hw.map(h=>({h,i:hwInfo(h)})),act=all.filter(x=>!x.i.fin).sort((a,b)=>a.h.due<b.h.due?-1:1),fin=all.filter(x=>x.i.fin);
   if(HWV.det){const dh=S.hw.find(x=>x.id===HWV.det);if(dh)return hwDetail(dh);HWV.det=null}
@@ -938,6 +939,7 @@ document.addEventListener('click',async e=>{
   else if(a==='planall'){
     const list=S.hw.filter(x=>{const i=hwInfo(x);return !i.fin&&!i.open.length}).sort((x,y)=>x.due<y.due?-1:1);let parts=0,placed=0,left=0;
     list.forEach(x=>{const r=planHw(x);parts+=r.parts;placed+=r.placed;left+=r.left});render();toast(hwPlanMsg({parts,placed,left}))}
+  else if(a==='reopen'&&h){h.done=false;h.re=true;save();render();toast('Вернула в работу. Нажми «В план», чтобы найти время.')}
   else if(a==='done'&&h){h.done=true;S.tasks=S.tasks.filter(t=>!(t.hwId===h.id&&!t.done));HWV.det=null;save();render();window.scrollTo(0,0);toast('Домашка готова. Молодец!')}
   else if(a==='del'&&h){if(!confirm('Удалить эту домашку и её запланированные части?'))return;S.hw=S.hw.filter(x=>x.id!==id);S.tasks=S.tasks.filter(t=>!(t.hwId===id&&!t.done));phDel(id);phDel('f:'+id);HWV.det=null;save();render();window.scrollTo(0,0)}
 });
@@ -1260,7 +1262,7 @@ const IC={
  ok:'<svg viewBox="0 0 24 24" fill="none" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'
 };
 const WKX={};
-const VIEWS=[['day','День'],['week','Неделя'],['sch','Пары'],['hw','Домашка'],['sol','Решения'],['habits','Привычки'],['focus','Фокус'],['notes','Заметки'],['conf','Конференции'],['joy','Радость'],['chat','Поддержка'],['tutor','Репетитор'],['ai','Учёба ИИ']];
+const VIEWS=[['day','День'],['week','Неделя'],['sch','Пары'],['hw','Домашка'],['sol','Решения'],['cards','Карточки'],['habits','Привычки'],['focus','Фокус'],['notes','Заметки'],['conf','Конференции'],['joy','Радость'],['chat','Поддержка'],['tutor','Репетитор'],['ai','Учёба ИИ']];
 IC.chat='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/><path d="M8.5 9.5h7M8.5 12.5h4"/></svg>';
 IC.tutor='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4M7 9h6M7 12h4"/></svg>';
 IC.more='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="18.5" cy="12" r="1.4"/></svg>';
@@ -1890,7 +1892,7 @@ document.addEventListener('click',e=>{
 });
 /* ---------- сворачивание карточек ---------- */
 function foldify(){
-  if(view==='ai'||view==='chat'||view==='tutor')return;
+  if(view==='ai'||view==='chat'||view==='tutor'||view==='cards')return;
   document.querySelectorAll('#main section.card').forEach(c=>{
     if(c.id==='petcard'||c.dataset.fold||c.closest('.fold-b'))return;
     const isQa=c.classList.contains('qa');let hd=null;
@@ -1925,7 +1927,7 @@ document.addEventListener('click',e=>{
 });
 function render(){
   renderNav();
-  $('#main').innerHTML={day:vDay,week:vWeek,sch:vSchedule,hw:vHw,sol:vSol,habits:vHabits,focus:vFocus,notes:vNotes,conf:vConf,joy:vJoy,chat:vChat,tutor:vTutor,ai:vAI}[view]();
+  $('#main').innerHTML={day:vDay,week:vWeek,sch:vSchedule,hw:vHw,sol:vSol,cards:vDecks,habits:vHabits,focus:vFocus,notes:vNotes,conf:vConf,joy:vJoy,chat:vChat,tutor:vTutor,ai:vAI}[view]();
   foldify();
   if(view==='joy'&&MG.tab==='alch')alField();
   if(view==='day'){updatePreview();}
@@ -2420,7 +2422,7 @@ function softMove(){
   const b=$('.toast [data-act=undo]');if(b)b.dataset.act='smundo';
 }
 /* ---------- ИИ для учёбы: рецензент и карточки ---------- */
-let AV={tab:'rev',kind:'essay',rt:'',ft:'',busy:false,err:'',rev:null,deck:S.deck||null,mode:'cards',queue:null,kn:0,flip:false,q:0,pick:null,score:0};
+let AV={tab:'rev',kind:'essay',rt:'',ft:'',fph:[],fpdf:[],busy:false,err:'',rev:null,deck:S.deck||null,mode:'cards',queue:null,kn:0,flip:false,q:0,pick:null,score:0};
 
 /* ---------- ИИ: время для дел и защита от выгорания ---------- */
 let AIX={busy:'',slot:null,burn:null,err:''};
@@ -2508,10 +2510,11 @@ async function revGo(){
   AV.busy=false;render();
 }
 async function fcGo(){
-  const t=(AV.ft||'').trim();if(t.length<80){toast('Вставь конспект: хотя бы несколько абзацев');return}
-  const p='Сделай из конспекта материал для повторения. Используй только факты из конспекта. Пиши по-русски. Конспект: """'+t.slice(0,12000)+'""" Верни только JSON: {"title":"короткое название темы","cards":[{"q":"вопрос или термин","a":"краткий ответ"}],"quiz":[{"q":"вопрос","o":["вариант","вариант","вариант","вариант"],"c":0,"e":"пояснение в одно предложение"}]}. Карточек 8-14, вопросов теста 6-8, c это индекс верного варианта от 0 до 3, верный вариант в разных позициях. Без markdown.';
+  const t=(AV.ft||'').trim(),ph=AV.fph.map(x=>x.full),pdfs=AV.fpdf.slice(),att=ph.length||pdfs.length;
+  if(t.length<80&&!att){toast('Вставь конспект, загрузи файл или сфотографируй страницы');return}
+  const p='Сделай из конспекта материал для повторения. Используй только факты из конспекта. Пиши по-русски.'+(t?' Конспект: """'+t.slice(0,12000)+'"""':'')+(att?' Часть конспекта на приложенных фото и в PDF: прочитай их полностью, страницы идут по порядку, объедини с текстом.':'')+' Верни только JSON: {"title":"короткое название темы","cards":[{"q":"вопрос или термин","a":"краткий ответ"}],"quiz":[{"q":"вопрос","o":["вариант","вариант","вариант","вариант"],"c":0,"e":"пояснение в одно предложение"}]}. Карточек 8-14, вопросов теста 6-8, c это индекс верного варианта от 0 до 3, верный вариант в разных позициях. Без markdown.';
   AV.busy=true;AV.err='';render();
-  try{const r=await aiJ(p)||{};
+  try{const r=(att?await hwAI(p,ph,pdfs,{cfg:{temperature:0.3,maxOutputTokens:16384}}):await aiJ(p))||{};
     const cards=(Array.isArray(r.cards)?r.cards:[]).filter(x=>x&&x.q&&x.a).slice(0,16).map(x=>({q:String(x.q),a:String(x.a)}));
     const quiz=(Array.isArray(r.quiz)?r.quiz:[]).filter(x=>x&&x.q&&Array.isArray(x.o)&&x.o.length>=2&&+x.c>=0&&+x.c<x.o.length).slice(0,10).map(x=>({q:String(x.q),o:x.o.slice(0,4).map(String),c:+x.c,e:String(x.e||'')}));
     if(!cards.length&&!quiz.length)throw {code:'bad'};
@@ -2564,7 +2567,7 @@ function vPrompt(){
   return form+res+hist;
 }
 function vAI(){
-  const T={rev:['Проверка перед сдачей','Загрузи текст реферата или план презентации. Найду слабые места и подскажу, что поправить.'],cards:['Конспект в карточки','Загрузи конспект, и я сделаю карточки и мини-тест для быстрого повторения.'],prompt:['Составитель промтов','Опиши, что нужно получить, при желании прикрепи файлы. Соберу готовый промт и сохраню его в истории.']}[AV.tab]||[];
+  const T={rev:['Проверка перед сдачей','Загрузи текст реферата или план презентации. Найду слабые места и подскажу, что поправить.'],cards:['Конспект в карточки','Вставь текст конспекта, загрузи Word или PDF или сфотографируй страницы. Я сделаю карточки и мини-тест для быстрого повторения.'],prompt:['Составитель промтов','Опиши, что нужно получить, при желании прикрепи файлы. Соберу готовый промт и сохраню его в истории.']}[AV.tab]||[];
   const tb=(k,n)=>`<button class="btn ${AV.tab===k?'primary':''}" data-act="aitab" data-v="${k}">${n}</button>`;
   return `<div class="head"><div><div class="eyebrow">ИИ для учёбы</div><h1>${T[0]}</h1><p>${T[1]}</p></div></div>
   <div class="row" style="gap:8px;margin:12px 0">${tb('rev','Рецензент')}${tb('cards','Карточки и тест')}${tb('prompt','Промты')}</div>
@@ -2581,9 +2584,14 @@ function vRev(){
   ${r.weak.length?`<div class="stack" style="gap:10px"><b>Слабые места</b>${r.weak.map(w=>`<div style="padding:10px 12px;border-radius:14px;background:var(--surface2)"><div class="muted" style="font-size:13px">${esc(w.where)}</div><div>${esc(w.problem)}</div><div style="color:var(--good)">→ ${esc(w.fix)}</div></div>`).join('')}</div>`:''}
   ${r.steps.length?`<div class="stack" style="gap:6px"><b>Как дотянуть до «отлично»</b>${r.steps.map((x,i)=>`<div>${i+1}. ${esc(x)}</div>`).join('')}</div><button class="btn" data-act="revtodo">Добавить шаги в копилку</button>`:''}</section>`:''}`;
 }
+function fcPhotoBox(){return `<div class="stack" style="gap:8px"><div><label class="btn sm" style="cursor:pointer">📷 Фото конспекта (до 6)<input type="file" id="fc-ph" accept="image/*" multiple hidden></label></div>${AV.fph.length?`<div class="row" style="gap:10px;flex-wrap:wrap">${AV.fph.map((p,k)=>`<span style="position:relative;display:inline-block"><img class="hsth" src="${esc(p.thumb)}" alt="Фото ${k+1}"><button type="button" class="xdel" data-fcx="ph" data-i="${k}" aria-label="Убрать фото" style="position:absolute;top:-6px;right:-6px;background:var(--surface)">×</button></span>`).join('')}</div>`:''}${AV.fpdf.length?`<div class="li"><span>📎 Скан PDF: ${esc(AV.fpdf[0].name)}</span><button type="button" class="xdel" data-fcx="pdf" aria-label="Убрать">×</button></div>`:''}</div>`}
+document.addEventListener('click',e=>{const el=e.target.closest('[data-fcx]');if(!el)return;if(el.dataset.fcx==='ph')AV.fph.splice(+el.dataset.i,1);else AV.fpdf=[];render()});
+document.addEventListener('change',async e=>{if(e.target.id!=='fc-ph')return;const fs=[...e.target.files];e.target.value='';
+  for(const f of fs){if(AV.fph.length>=6){toast('Хватит шести фото');break}const k=await hwPack(f);if(!k){toast('Не удалось открыть фото. Попробуй JPG или PNG');continue}AV.fph.push(k)}
+  render()});
 function vCards(){
   const D=AV.deck;
-  const gen=`<section class="card stack" style="gap:12px;margin-top:12px"><textarea id="fc-t" style="min-height:160px" placeholder="Вставь конспект сюда…" aria-label="Конспект">${esc(AV.ft)}</textarea>${fileBox()}<button class="btn primary" data-act="fcgo" ${AV.busy?'disabled':''}>${AV.busy?'Делаю карточки…':(D?'Сделать заново':'Сделать карточки и тест')}</button></section>`;
+  const gen=`<section class="card stack" style="gap:12px;margin-top:12px"><textarea id="fc-t" style="min-height:160px" placeholder="Вставь конспект сюда…" aria-label="Конспект">${esc(AV.ft)}</textarea>${fileBox()}${fcPhotoBox()}<button class="btn primary" data-act="fcgo" ${AV.busy?'disabled':''}>${AV.busy?'Делаю карточки…':(D?'Сделать заново':'Сделать карточки и тест')}</button></section>`;
   if(!D)return gen;
   const tabs=`<div class="row" style="gap:8px;margin-top:12px"><span class="chip">${esc(D.title)}</span>${D.cards.length?`<button class="btn sm ${AV.mode==='cards'?'primary':''}" data-act="cmode" data-v="cards">Карточки · ${D.cards.length}</button>`:''}${D.quiz.length?`<button class="btn sm ${AV.mode==='quiz'?'primary':''}" data-act="cmode" data-v="quiz">Тест · ${D.quiz.length}</button>`:''}</div>`;
   let body='';
@@ -2607,7 +2615,9 @@ async function readDoc(f){
   throw {code:'fmt'};
 }
 document.addEventListener('change',async e=>{if(e.target.id!=='ai-file')return;const f=e.target.files[0];if(!f)return;toast('Читаю файл…');
-  try{const x=(await readDoc(f)).trim();if(x.length<20){toast('Текста в файле не нашла. Если это скан, вставь текст вручную');return}
+  try{const x=(await readDoc(f)).trim();
+    if(x.length<20&&AV.tab==='cards'&&/\.pdf$/i.test(f.name)&&f.size<=10*1048576){AV.fpdf=[f];render();toast('В PDF нет текста, это скан. Прочитаю его через ИИ при создании карточек');return}
+    if(x.length<20){toast('Текста в файле не нашла. Если это скан, вставь текст вручную');return}
     if(AV.tab==='rev')AV.rt=x;else AV.ft=x;render();toast(x.length>12000?'Файл прочитан. Для проверки возьму первые 12 000 символов':'Файл прочитан: '+x.length+' символов')}
   catch(err){toast(err&&err.code==='fmt'?'Читаю PDF, DOCX, TXT и MD. Старый .doc сохрани как .docx':'Не получилось открыть файл. Попробуй вставить текст вручную')}});
 document.addEventListener('input',e=>{const i=e.target.id,p=AV.pt;if(i==='pt-goal')p.goal=e.target.value;else if(i==='pt-extra')p.extra=e.target.value;else if(i==='pt-kind')p.kind=e.target.value;else if(i==='pt-out'){const x=S.prompts.find(y=>y.id===e.target.dataset.id);if(x){x.text=e.target.value;save()}}});
@@ -3188,6 +3198,223 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-sl]');if(
   else if(a==='copy'&&x){navigator.clipboard.writeText(solText(x)).then(()=>toast('Скопировано'),()=>toast('Не удалось скопировать'))}
   else if(a==='del'&&x){if(!confirm('Удалить это решение из архива?'))return;S.sols=S.sols.filter(y=>y.id!==id);phDel('sf:'+id);SL.det=null;SL.fv=null;save();render();window.scrollTo(0,0)}
 });
+
+/* ---------- раздел «Карточки»: колоды, повторение, тесты ---------- */
+if(!S.decks){S.decks=[];if(S.deck&&((S.deck.cards||[]).length||(S.deck.quiz||[]).length)){S.decks.push({id:uid(),name:S.deck.title||'Конспект',subj:'',ts:Date.now(),cards:(S.deck.cards||[]).map(x=>({id:uid(),q:x.q,a:x.a,h:'',box:0,due:todayS()})),quiz:(S.deck.quiz||[]).map(x=>({q:x.q,o:x.o,c:x.c,e:x.e||''}))})}save()}
+if(!S.dcLog)S.dcLog={};
+if(KO.dccards===undefined)KO.dccards=true;
+IC.cards='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="14" height="12" rx="2.5"/><path d="M7 7V5.5A2.5 2.5 0 0 1 9.5 3h9A2.5 2.5 0 0 1 21 5.5v8a2.5 2.5 0 0 1-2.5 2.5H17"/><path d="M7 12h6M7 15h3"/></svg>';
+const DC={tab:'list',det:null,mode:'',target:null,rev:false,f:{name:'',subj:'',txt:'',n:'20',type:'qa',qn:'10',lvl:'mid',focus:''},ph:[],pdf:[],m:{q:'',a:''},busy:false,err:'',key:false,ses:null,qz:null};
+const DC_INT=[0,1,3,7,14,30];
+const DC_TYPES={qa:['Вопрос — ответ','вопрос на лицевой стороне, краткий ответ на обороте'],term:['Термин — определение','термин на лицевой стороне, определение на обороте'],cloze:['Пропуск в предложении','предложение с пропуском ____ на лицевой стороне, пропущенное слово или фраза на обороте']};
+const DC_LVL={easy:['Лёгкий','простые вопросы на запоминание основных понятий'],mid:['Средний','вопросы средней сложности на понимание'],hard:['Сложный','сложные вопросы на применение, сравнение и причины']};
+const DC_BOX=['новая','учится','учится','хорошо','хорошо','выучена'];
+const dcPl=(n,a)=>{const m=n%100,k=n%10;return a[m>10&&m<20?2:k===1?0:k>1&&k<5?1:2]};
+const dcCw=n=>n+' '+dcPl(n,['карточка','карточки','карточек']);
+const dcDeck=id=>S.decks.find(d=>d.id===id);
+const dcDue=d=>d.cards.filter(c=>!c.due||c.due<=todayS());
+const dcLearned=d=>d.cards.filter(c=>(c.box||0)>=3).length;
+const dcOpt=(k,v,l)=>'<button type="button" class="qc" data-dc="opt" data-k="'+k+'" data-v="'+v+'" aria-pressed="'+(DC.f[k]===v)+'">'+l+'</button>';
+
+function dcCard(d){
+  const du=dcDue(d).length,lr=d.cards.length?Math.round(dcLearned(d)/d.cards.length*100):0;
+  return `<button type="button" class="sl-hd hw-card card flat" data-dc="open" data-id="${d.id}"><span class="sl-hm"><b class="sl-subj">${esc(d.name)}</b>${d.subj?`<span class="sl-ttl">${esc(d.subj)}</span>`:''}<span class="sl-meta"><span class="chip">${dcCw(d.cards.length)}</span>${du?`<span class="chip warnchip">повторить: ${du}</span>`:d.cards.length?'<span class="chip" style="color:var(--good)">всё повторено</span>':''}<span class="chip">выучено ${lr}%</span>${d.quiz.length?`<span class="chip">тест: ${d.quiz.length}</span>`:''}</span></span><span class="sl-chev" aria-hidden="true">›</span></button>`}
+function dcListHtml(){
+  const ds=S.decks.slice();
+  if(!ds.length)return '<section class="card"><div class="empty">Колод пока нет. Вставь конспект, загрузи Word или PDF или сфотографируй страницы, и ИИ сделает карточки и тест.<div style="margin-top:12px"><button type="button" class="btn primary" data-dc="tab" data-v="new">＋ Создать колоду</button></div></div></section>';
+  const td=ds.reduce((s,d)=>s+dcDue(d).length,0),nd=ds.filter(d=>dcDue(d).length).length,today=S.dcLog[todayS()]||0;
+  ds.sort((a,b)=>(dcDue(b).length>0)-(dcDue(a).length>0)||b.ts-a.ts);
+  return (td?`<div class="banner" style="margin:0"><span>К повторению сегодня: <b>${dcCw(td)}</b> (колод: ${nd}).${today?' Уже повторено: '+today+'.':''}</span><button type="button" class="btn sm primary" data-dc="runall">Повторить всё</button></div>`:`<div class="banner" style="margin:0"><span>На сегодня всё повторено${today?' ('+today+')':''}. Можно отдохнуть или пройти тест.</span></div>`)+ds.map(dcCard).join('')}
+function dcNewForm(){
+  const f=DC.f,tg=DC.target&&dcDeck(DC.target),att=DC.ph.length||DC.pdf.length;
+  if(DC.target&&!tg)DC.target=null;
+  return `<section class="card sl-form"><div class="stack" style="gap:18px">
+  ${tg?`<div class="banner" style="margin:0"><span>Дополняем колоду «${esc(tg.name)}». Новые карточки добавятся к уже готовым.</span><button type="button" class="btn sm ghost" data-dc="notarget">Отмена</button></div>`:`<div class="sl-sec"><div class="sl-sh">1. Название и предмет</div><div class="stack" style="gap:10px"><label>Название колоды<input type="text" id="dc-name" style="font-size:16px" autocomplete="off" placeholder="Например, Римское право: сделки" value="${esc(f.name)}"></label><label>Предмет<input type="text" id="dc-subj" style="font-size:16px" list="dc-subjs" autocomplete="off" placeholder="Можно оставить пустым" value="${esc(f.subj)}"></label><datalist id="dc-subjs">${hwSubjects().map(x=>'<option value="'+esc(x)+'">').join('')}</datalist></div></div>`}
+  <div class="sl-sec"><div class="sl-sh">${tg?'1':'2'}. Откуда взять материал</div>
+    <textarea id="dc-txt" rows="7" style="font-size:16px" placeholder="Вставь текст конспекта или лекции…" aria-label="Текст конспекта">${esc(f.txt)}</textarea>
+    <div class="sl-grid sl-grid2"><label class="btn sm" style="cursor:pointer">📎 Word, PDF, txt<input type="file" id="dc-file" multiple accept=".pdf,.docx,.txt,.md,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown" hidden></label><label class="btn sm" style="cursor:pointer">📷 Фото конспекта<input type="file" id="dc-ph" accept="image/*" multiple hidden></label></div>
+    <div class="muted" style="font-size:12px">${f.txt.trim()?'Текста: '+f.txt.length+' знаков. ':''}Можно сочетать всё: текст, файлы и до 8 фото. PDF-скан без текста я прочитаю через ИИ.</div>
+    ${DC.ph.length?`<div class="row" style="gap:10px;flex-wrap:wrap">${DC.ph.map((p,k)=>`<span style="position:relative;display:inline-block"><img class="hsth" src="${esc(p.thumb)}" alt="Фото ${k+1}"><button type="button" class="xdel" data-dc="phdel" data-i="${k}" aria-label="Убрать фото" style="position:absolute;top:-6px;right:-6px;background:var(--surface)">×</button></span>`).join('')}</div>`:''}
+    ${DC.pdf.map((p,k)=>`<div class="li"><span>📎 Скан PDF: ${esc(p.name)}</span><button type="button" class="xdel" data-dc="pdfdel" data-i="${k}" aria-label="Убрать">×</button></div>`).join('')}</div>
+  <div class="sl-sec"><div class="sl-sh">${tg?'2':'3'}. Настройки</div><div class="stack" style="gap:12px">
+    <div><div class="muted" style="font-size:12px;margin-bottom:6px">Сколько карточек</div><div class="cats">${[['','Авто'],['10','10'],['20','20'],['30','30'],['40','40']].map(x=>dcOpt('n',x[0],x[1])).join('')}</div></div>
+    <div><div class="muted" style="font-size:12px;margin-bottom:6px">Тип карточек</div><div class="cats">${Object.keys(DC_TYPES).map(k=>dcOpt('type',k,DC_TYPES[k][0])).join('')}</div></div>
+    <div><div class="muted" style="font-size:12px;margin-bottom:6px">Вопросов в тесте</div><div class="cats">${[['0','Без теста'],['5','5'],['10','10'],['15','15'],['20','20']].map(x=>dcOpt('qn',x[0],x[1])).join('')}</div></div>
+    <div><div class="muted" style="font-size:12px;margin-bottom:6px">Сложность теста</div><div class="cats">${Object.keys(DC_LVL).map(k=>dcOpt('lvl',k,DC_LVL[k][0])).join('')}</div></div>
+    <label>Сделать упор на (по желанию)<input type="text" id="dc-focus" style="font-size:16px" autocomplete="off" placeholder="Например: даты, определения, формулы" value="${esc(f.focus)}"></label></div></div>
+  ${DC.err?`<div class="banner" style="margin:0"><span>${esc(DC.err)}</span></div>`:''}
+  ${DC.key?`<div class="stack" style="gap:8px"><div class="muted" style="font-size:13px">Нужен бесплатный ключ Google Gemini: <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>. Ключ хранится только в этом браузере.</div><input type="password" id="dc-key" style="font-size:16px" autocomplete="off" placeholder="AIza…"><button type="button" class="btn primary" data-dc="key">Сохранить ключ и продолжить</button></div>`:''}
+  <button type="button" class="btn primary sl-wide" data-dc="create"${DC.busy?' disabled':''}>${DC.busy?'Делаю карточки… это может занять до минуты':'✨ Создать с ИИ'}</button>
+  ${tg?'':'<button type="button" class="btn ghost sl-wide" data-dc="blank">Создать пустую колоду и наполнить вручную</button>'}</div></section>`}
+function dcCardEd(c){return `<div class="tuq"><textarea style="font-size:16px;min-height:56px" rows="2" data-dce="${c.id}.q" aria-label="Вопрос">${esc(c.q)}</textarea><textarea style="font-size:16px;min-height:56px" rows="2" data-dce="${c.id}.a" aria-label="Ответ">${esc(c.a)}</textarea><div class="row" style="justify-content:space-between"><span class="chip">${DC_BOX[c.box||0]}</span><button type="button" class="xdel" data-dc="cdel" data-id="${c.id}" aria-label="Удалить карточку">×</button></div></div>`}
+function dcDetail(d){
+  const n=d.cards.length,du=dcDue(d).length,lr=n?Math.round(dcLearned(d)/n*100):0,hard=d.cards.filter(c=>(c.box||0)<=1).length;
+  return `<div class="sl-bar"><button type="button" class="sl-back" data-dc="back">‹ Все колоды</button></div>
+  <div class="stack"><div><div class="eyebrow">${d.subj?esc(d.subj):'Колода'}</div><h1 id="dc-h1" style="font-size:clamp(22px,6vw,30px);line-height:1.15;overflow-wrap:anywhere;margin-top:4px">${esc(d.name)}</h1>
+    <div class="sl-meta" style="margin-top:10px"><span class="chip">${dcCw(n)}</span>${du?`<span class="chip warnchip">повторить: ${du}</span>`:''}<span class="chip">тест: ${d.quiz.length}</span></div>
+    <div class="bar" style="height:10px;margin-top:12px"><i style="width:${lr}%;background:var(--good)"></i></div><div class="muted" style="font-size:12px;margin-top:4px">Выучено ${dcLearned(d)} из ${n}. Выученной считается карточка, которую ты несколько раз вспомнила.</div></div>
+    <div class="sl-grid sl-grid2">
+      <button type="button" class="btn primary" data-dc="study" data-k="due" data-id="${d.id}">Учить сегодня · ${du}</button>
+      <button type="button" class="btn" data-dc="study" data-k="all" data-id="${d.id}">Все вперемешку</button>
+      <button type="button" class="btn" data-dc="study" data-k="hard" data-id="${d.id}"${hard?'':' disabled'}>Сложные · ${hard}</button>
+      <button type="button" class="btn ${DC.rev?'primary':''}" data-dc="rev" aria-pressed="${DC.rev}">${DC.rev?'✓ ':''}Ответ → вопрос</button>
+      <button type="button" class="btn" data-dc="quiz" data-src="cards" data-id="${d.id}"${n>=2?'':' disabled'}>Тест по карточкам</button>
+      <button type="button" class="btn" data-dc="quiz" data-src="ai" data-id="${d.id}"${d.quiz.length?'':' disabled'}>Тест от ИИ · ${d.quiz.length}</button></div>
+    <section class="card flat sl-card sl-det"><div class="sl-body">
+      <div class="sl-sec"><div class="sl-sh">Добавить карточку</div><textarea id="dc-mq" rows="2" style="font-size:16px" placeholder="Вопрос или термин" aria-label="Вопрос">${esc(DC.m.q)}</textarea><textarea id="dc-ma" rows="2" style="font-size:16px" placeholder="Ответ" aria-label="Ответ">${esc(DC.m.a)}</textarea>
+        <div class="sl-grid sl-grid2"><button type="button" class="btn sm primary" data-dc="madd" data-id="${d.id}">Добавить</button><button type="button" class="btn sm" data-dc="more" data-id="${d.id}">✨ Дополнить с ИИ</button></div></div>
+      <details data-keep="dccards"${kopen('dccards')}><summary style="font-weight:600;cursor:pointer;padding:6px 0">Карточки · ${n}</summary><div class="stack" style="gap:10px;margin-top:8px">${d.cards.map(dcCardEd).join('')||'<div class="muted" style="font-size:14px">Пока пусто.</div>'}</div></details>
+      <details data-keep="dcquiz"${kopen('dcquiz')}><summary style="font-weight:600;cursor:pointer;padding:6px 0">Вопросы теста · ${d.quiz.length}</summary><div class="stack" style="gap:10px;margin-top:8px">${d.quiz.map((x,i)=>`<div class="tuq"><b style="font-size:14px">${esc(x.q)}</b>${x.o.map((o,k)=>`<div style="font-size:14px;${k===x.c?'color:var(--good);font-weight:600':''}">${k===x.c?'✓ ':'• '}${esc(o)}</div>`).join('')}<div class="row" style="justify-content:flex-end"><button type="button" class="xdel" data-dc="qdel" data-i="${i}" aria-label="Удалить вопрос">×</button></div></div>`).join('')||'<div class="muted" style="font-size:14px">Вопросов нет. Их можно добавить через «Дополнить с ИИ».</div>'}</div></details>
+      <div class="sl-sec"><div class="sl-sh">Экспорт</div><div class="sl-grid sl-grid2"><button type="button" class="btn sm" data-dc="copy" data-id="${d.id}">Копировать текстом</button><button type="button" class="btn sm" data-dc="dl" data-id="${d.id}">Скачать для Anki</button></div></div>
+      <div class="sl-sec"><div class="sl-sh">Название и предмет</div><input type="text" style="font-size:16px" data-dcd="name" value="${esc(d.name)}" aria-label="Название"><input type="text" style="font-size:16px" list="dc-subjs" data-dcd="subj" value="${esc(d.subj||'')}" placeholder="Предмет" aria-label="Предмет"><datalist id="dc-subjs">${hwSubjects().map(x=>'<option value="'+esc(x)+'">').join('')}</datalist></div>
+      <div class="sl-grid sl-grid2"><button type="button" class="btn sm" data-dc="reset" data-id="${d.id}">Сбросить прогресс</button><button type="button" class="btn sm ghost" data-dc="ddel" data-id="${d.id}" style="color:var(--bad)">Удалить колоду</button></div>
+    </div></section></div>`}
+
+/* повторение */
+function dcRun(q,kind){
+  if(!q.length){toast(kind==='due'?'На сегодня повторять нечего':'Нет подходящих карточек');return}
+  DC.ses={q:shuf(q),i:0,flip:false,hint:false,wrong:[],kind,total:q.length,done:false,rev:DC.rev};DC.mode='study';render();window.scrollTo(0,0)}
+function dcStart(did,kind){
+  const q=[];(did?[dcDeck(did)]:S.decks).forEach(d=>{if(!d)return;let l=d.cards;if(kind==='due')l=dcDue(d);else if(kind==='hard')l=d.cards.filter(c=>(c.box||0)<=1);l.forEach(c=>q.push({d:d.id,c:c.id}))});
+  dcRun(q,kind)}
+function dcRate(r){
+  const s=DC.ses;if(!s||s.done||!s.flip)return;const it=s.q[s.i],d=dcDeck(it.d),c=d&&d.cards.find(x=>x.id===it.c);
+  if(c){if(r===0){c.box=0;c.due=todayS()}else{c.box=Math.min(5,(c.box||0)+(r===2?2:1));c.due=addDays(todayS(),DC_INT[c.box])}}
+  if(r===0){if(!s.wrong.some(x=>x.c===it.c))s.wrong.push(it);s.q.push(it)}
+  S.dcLog[todayS()]=(S.dcLog[todayS()]||0)+1;
+  s.i++;s.flip=false;s.hint=false;if(s.i>=s.q.length){s.done=true;if(!s.wrong.length)toast('Всё вспомнила. Отличная работа!')}
+  save();render()}
+function dcStudyHtml(){
+  const s=DC.ses,find=it=>{const d=dcDeck(it.d),c=d&&d.cards.find(x=>x.id===it.c);return c?{d,c}:null};
+  while(s.i<s.q.length&&!find(s.q[s.i]))s.i++;
+  if(s.i>=s.q.length)s.done=true;
+  const bar='<div class="sl-bar"><button type="button" class="sl-back" data-dc="sclose">‹ Закончить</button></div>';
+  if(s.done){const fw=s.total-s.wrong.length;
+    return bar+`<div class="stack"><section class="card" style="text-align:center"><div class="eyebrow">Готово</div><div class="big" style="margin:8px 0">${fw} из ${s.total}</div><p class="muted" style="margin:0">${s.wrong.length?'С первого раза вспомнила '+fw+'. Ещё стоит повторить: '+s.wrong.length+'. Они вернутся завтра, но можно пройти их прямо сейчас.':'Вспомнила всё с первого раза. Эти карточки теперь покажутся позже.'}</p>
+    <div class="stack" style="gap:8px;margin-top:16px">${s.wrong.length?`<button type="button" class="btn primary" data-dc="sretry">Повторить ошибки · ${s.wrong.length}</button>`:''}<button type="button" class="btn ${s.wrong.length?'':'primary'}" data-dc="sclose">Закрыть</button></div></section></div>`}
+  const {d,c}=find(s.q[s.i]),front=s.rev?c.a:c.q,back=s.rev?c.q:c.a,b=c.box||0,lab=r=>r===0?'сегодня':'через '+DC_INT[Math.min(5,b+(r===2?2:1))]+' дн.';
+  const pct=Math.round(s.i/s.q.length*100);
+  return bar+`<div class="stack"><div class="row" style="gap:10px;flex-wrap:nowrap"><div class="bar grow" style="height:10px"><i style="width:${pct}%;background:var(--accent)"></i></div><b style="font-size:13px;white-space:nowrap">${s.i+1} / ${s.q.length}</b></div>
+  <div class="muted" style="font-size:12px;text-align:center">${esc(d.name)} · ${DC_BOX[b]}</div>
+  <button type="button" class="fcard" data-dc="flip" style="min-height:240px;white-space:pre-wrap;overflow-wrap:anywhere" aria-label="Перевернуть карточку"><div>${s.flip?`<div class="muted" style="font-size:13px;font-weight:500;margin-bottom:12px">${esc(front)}</div><div>${esc(back)}</div>`:esc(front)}</div></button>
+  ${s.flip?`<div class="sl-grid sl-grid3">${[[0,'Снова'],[1,'Хорошо'],[2,'Легко']].map(x=>`<button type="button" class="btn ${x[0]===1?'primary':''}" data-dc="rate" data-k="${x[0]}" style="flex-direction:column;gap:2px;padding:10px 4px"><span>${x[1]}</span><span style="font-size:11px;font-weight:500;opacity:.8">${lab(x[0])}</span></button>`).join('')}</div>`
+   :`<button type="button" class="btn primary sl-wide" data-dc="flip">Показать ответ</button>${c.h&&!s.rev?(s.hint?`<div class="banner" style="margin:0;justify-content:center"><span style="text-align:center">💡 ${esc(c.h)}</span></div>`:'<button type="button" class="btn sm ghost" data-dc="hint">💡 Подсказка</button>'):''}`}
+  <div class="muted" style="font-size:12px;text-align:center">Нажми на карточку, чтобы перевернуть. С клавиатуры: пробел, затем 1, 2 или 3.</div></div>`}
+
+/* тест */
+function dcQuiz(did,src){
+  const d=dcDeck(did);if(!d)return;let items=[];
+  if(src==='ai')items=d.quiz.map(x=>({q:x.q,o:x.o.slice(),c:x.c,e:x.e||'',cid:null}));
+  else{const pool=d.cards.filter(c=>c.a.length<=160);
+    pool.forEach(c=>{const wr=shuf(pool.filter(x=>x.id!==c.id&&x.a!==c.a)).slice(0,3).map(x=>x.a);if(!wr.length)return;const o=shuf([c.a].concat(wr));items.push({q:c.q,o,c:o.indexOf(c.a),e:'',cid:c.id})})}
+  items=shuf(items);if(src!=='ai')items=items.slice(0,15);
+  if(!items.length){toast(src==='ai'?'В этой колоде нет вопросов от ИИ':'Для теста нужно хотя бы две карточки с короткими ответами');return}
+  DC.qz={d:did,items,i:0,pick:null,score:0,wrong:[],src};DC.mode='quiz';render();window.scrollTo(0,0)}
+function dcQuizHtml(){
+  const z=DC.qz,bar='<div class="sl-bar"><button type="button" class="sl-back" data-dc="qclose">‹ Закончить</button></div>';
+  if(z.i>=z.items.length){const p=Math.round(z.score/z.items.length*100),cw=z.wrong.filter(x=>x.cid).length;
+    return bar+`<div class="stack"><section class="card" style="text-align:center"><div class="eyebrow">Результат</div><div class="big" style="margin:8px 0">${z.score} из ${z.items.length}</div><p class="muted" style="margin:0">${p===100?'Всё верно!':p>=70?'Хороший результат. Разбери ошибки ниже.':'Не страшно, это и есть повторение. Разбери ошибки и пройди ещё раз.'}</p>
+    ${z.wrong.length?`<div class="stack" style="gap:8px;margin-top:14px;text-align:left"><div class="eyebrow">Ошибки</div>${z.wrong.map(x=>`<div class="li" style="display:block"><b style="font-size:14px">${esc(x.q)}</b><div style="color:var(--good);font-size:14px;margin-top:4px">✓ ${esc(x.o[x.c])}</div>${x.e?`<div class="muted" style="font-size:13px">${esc(x.e)}</div>`:''}</div>`).join('')}</div>`:''}
+    <div class="stack" style="gap:8px;margin-top:16px">${cw?`<button type="button" class="btn primary" data-dc="qwrong">Ошибки в повторение · ${cw}</button>`:''}<button type="button" class="btn" data-dc="qagain">Пройти ещё раз</button><button type="button" class="btn ghost" data-dc="qclose">Закрыть</button></div></section></div>`}
+  const x=z.items[z.i],a=z.pick!==null;
+  return bar+`<div class="stack"><div class="row" style="gap:10px;flex-wrap:nowrap"><div class="bar grow" style="height:10px"><i style="width:${Math.round(z.i/z.items.length*100)}%;background:var(--accent)"></i></div><b style="font-size:13px;white-space:nowrap">${z.i+1} / ${z.items.length}</b></div>
+  <section class="card stack" style="gap:10px"><b style="font-size:17px;white-space:pre-wrap;overflow-wrap:anywhere">${esc(x.q)}</b>${x.o.map((o,i)=>`<button type="button" class="qopt ${a?(i===x.c?'ok':i===z.pick?'no':''):''}" data-dc="qpick" data-i="${i}">${esc(o)}</button>`).join('')}${a?(x.e?`<div class="muted">${esc(x.e)}</div>`:'')+`<button type="button" class="btn primary" data-dc="qnext">${z.i+1>=z.items.length?'Результат':'Дальше'}</button>`:''}</section></div>`}
+
+/* создание с ИИ */
+async function dcGenerate(o){
+  const att=o.ph.length||o.pdfs.length,t=o.txt.trim();
+  const p='Ты помощник студентки колледжа. Из конспекта сделай материал для повторения. Используй только факты из конспекта, ничего не выдумывай. Пиши по-русски. Формат карточек: '+DC_TYPES[o.type][1]+'. Карточек: '+(o.n?'около '+o.n:'столько, чтобы охватить весь материал, но не больше 40')+'. Одна карточка равна одному факту: вопрос до 20 слов, ответ до 25 слов. В поле h дай короткую подсказку (до 6 слов, не раскрывающую ответ) или пустую строку. '+
+   (+o.qn?'Тест: '+o.qn+' вопросов, '+DC_LVL[o.lvl][1]+'; в каждом 4 варианта, неверные правдоподобные, c это индекс верного (0-3), e пояснение в одно предложение. ':'Тест не нужен, quiz оставь пустым массивом. ')+
+   (o.focus.trim()?'Сделай упор на: '+o.focus.trim().slice(0,300)+'. ':'')+
+   (t?'Конспект: """'+t.slice(0,24000)+'""" ':'')+(att?'Часть конспекта на приложенных фото и в PDF: прочитай всё полностью, страницы идут по порядку, объедини с текстом. ':'')+
+   'Верни только JSON: {"title":"короткое название темы","subject":"предмет в 1-3 словах","cards":[{"q":"","a":"","h":""}],"quiz":[{"q":"","o":["","","",""],"c":0,"e":""}]}. Без markdown.';
+  const r=(await hwAI(p,o.ph,o.pdfs,{cfg:{temperature:0.3,maxOutputTokens:16384}}))||{};
+  const cards=(Array.isArray(r.cards)?r.cards:[]).filter(x=>x&&x.q&&x.a).slice(0,60).map(x=>({id:uid(),q:String(x.q).slice(0,400),a:String(x.a).slice(0,800),h:String(x.h||'').slice(0,80),box:0,due:todayS()}));
+  const quiz=(Array.isArray(r.quiz)?r.quiz:[]).filter(x=>x&&x.q&&Array.isArray(x.o)&&x.o.length>=2&&+x.c>=0&&+x.c<Math.min(4,x.o.length)).slice(0,30).map(x=>{const o=x.o.slice(0,4).map(String),ans=o[+x.c],sh=shuf(o);return {q:String(x.q).slice(0,400),o:sh,c:sh.indexOf(ans),e:String(x.e||'').slice(0,300)}});
+  return {title:String(r.title||'').slice(0,60),subj:String(r.subject||'').slice(0,40),cards,quiz}}
+async function dcCreate(){
+  if(DC.busy)return;const f=DC.f,txt=f.txt.trim(),att=DC.ph.length||DC.pdf.length;
+  if(txt.length<60&&!att){toast('Вставь текст конспекта, загрузи файл или добавь фото');return}
+  DC.busy=true;DC.err='';DC.key=false;render();
+  try{
+    const g=await dcGenerate({txt,ph:DC.ph.map(p=>p.full),pdfs:DC.pdf.slice(),n:f.n,type:f.type,qn:f.qn,lvl:f.lvl,focus:f.focus});
+    if(!g.cards.length&&!g.quiz.length)throw {code:'bad'};
+    let d=DC.target&&dcDeck(DC.target),added=g.cards.length;
+    if(d){const have=new Set(d.cards.map(c=>c.q.trim().toLowerCase()));const nc=g.cards.filter(c=>!have.has(c.q.trim().toLowerCase()));added=nc.length;d.cards=d.cards.concat(nc);d.quiz=d.quiz.concat(g.quiz).slice(0,60)}
+    else{d={id:uid(),name:(f.name.trim()||g.title||'Новая колода').slice(0,60),subj:(f.subj.trim()||g.subj||'').slice(0,40),ts:Date.now(),cards:g.cards,quiz:g.quiz};S.decks.unshift(d)}
+    f.name='';f.subj='';f.txt='';f.focus='';DC.ph=[];DC.pdf=[];DC.target=null;DC.tab='list';DC.det=d.id;save();
+    toast('Готово: '+dcCw(added)+(g.quiz.length?', вопросов теста: '+g.quiz.length:''));window.scrollTo(0,0)
+  }catch(e){const m=aiErr(e);if(m==='nokey'){DC.key=true;DC.err='Чтобы ИИ делал карточки, нужен ключ.'}else DC.err=m}
+  DC.busy=false;render()}
+function vDecks(){
+  if(DC.mode==='study'&&DC.ses)return dcStudyHtml();
+  if(DC.mode==='quiz'&&DC.qz)return dcQuizHtml();
+  DC.mode='';
+  if(DC.det){const d=dcDeck(DC.det);if(d)return dcDetail(d);DC.det=null}
+  const tab=DC.tab==='new'?'new':'list';
+  const tabs='<div class="sl-tabs" role="tablist">'+[['list','Колоды · '+S.decks.length],['new','＋ Создать']].map(t=>'<button type="button" role="tab" data-dc="tab" data-v="'+t[0]+'" aria-selected="'+(tab===t[0])+'">'+t[1]+'</button>').join('')+'</div>';
+  return '<div class="head"><div><div class="eyebrow">Повторение</div><h1>Карточки и тесты</h1></div></div><div class="stack">'+tabs+(tab==='new'?dcNewForm():dcListHtml())+'</div>'}
+
+document.addEventListener('click',async e=>{
+  const el=e.target.closest('[data-dc]');if(!el)return;const a=el.dataset.dc,id=el.dataset.id,d=id&&dcDeck(id);
+  switch(a){
+    case 'tab':DC.tab=el.dataset.v==='new'?'new':'list';if(DC.tab==='list')DC.target=null;render();window.scrollTo(0,0);break;
+    case 'open':DC.det=id;render();window.scrollTo(0,0);break;
+    case 'back':DC.det=null;DC.tab='list';render();window.scrollTo(0,0);break;
+    case 'runall':dcStart(null,'due');break;
+    case 'study':dcStart(id,el.dataset.k);break;
+    case 'rev':DC.rev=!DC.rev;render();break;
+    case 'quiz':dcQuiz(id,el.dataset.src);break;
+    case 'flip':if(DC.ses&&!DC.ses.done){DC.ses.flip=!DC.ses.flip;render()}break;
+    case 'hint':if(DC.ses){DC.ses.hint=true;render()}break;
+    case 'rate':dcRate(+el.dataset.k);break;
+    case 'sclose':DC.ses=null;DC.mode='';render();window.scrollTo(0,0);break;
+    case 'sretry':if(DC.ses){const w=DC.ses.wrong.slice();dcRun(w,'retry')}break;
+    case 'qpick':{const z=DC.qz;if(z&&z.pick===null){const x=z.items[z.i],i=+el.dataset.i;z.pick=i;if(i===x.c)z.score++;else z.wrong.push(x);render()}break}
+    case 'qnext':if(DC.qz){DC.qz.i++;DC.qz.pick=null;render();window.scrollTo(0,0)}break;
+    case 'qagain':if(DC.qz)dcQuiz(DC.qz.d,DC.qz.src);break;
+    case 'qclose':DC.qz=null;DC.mode='';render();window.scrollTo(0,0);break;
+    case 'qwrong':{const z=DC.qz,dk=z&&dcDeck(z.d);if(!dk)break;let n=0;z.wrong.forEach(x=>{const c=x.cid&&dk.cards.find(y=>y.id===x.cid);if(c){c.box=0;c.due=todayS();n++}});save();toast('В повторение на сегодня: '+n);DC.qz=null;DC.mode='';render();break}
+    case 'more':DC.target=id;DC.tab='new';DC.det=null;render();window.scrollTo(0,0);break;
+    case 'notarget':DC.target=null;render();break;
+    case 'opt':DC.f[el.dataset.k]=el.dataset.v;render();break;
+    case 'phdel':DC.ph.splice(+el.dataset.i,1);render();break;
+    case 'pdfdel':DC.pdf.splice(+el.dataset.i,1);render();break;
+    case 'create':dcCreate();break;
+    case 'key':{const k=(($('#dc-key')||{}).value||'').trim();if(!k){toast('Вставь ключ');break}
+      try{localStorage.setItem(AIK,JSON.stringify(Object.assign(aiCfg(),{key:k})))}catch(x){toast('Не удалось сохранить ключ в браузере');break}
+      DC.key=false;DC.err='';dcCreate();break}
+    case 'blank':{const n=(DC.f.name||'').trim()||'Новая колода',nd={id:uid(),name:n.slice(0,60),subj:(DC.f.subj||'').trim().slice(0,40),ts:Date.now(),cards:[],quiz:[]};S.decks.unshift(nd);DC.f.name='';DC.f.subj='';DC.tab='list';DC.det=nd.id;save();render();window.scrollTo(0,0);toast('Колода создана. Добавь карточки ниже.');break}
+    case 'madd':if(d){const q=(DC.m.q||'').trim(),an=(DC.m.a||'').trim();if(!q||!an){toast('Заполни вопрос и ответ');break}d.cards.push({id:uid(),q:q.slice(0,400),a:an.slice(0,800),h:'',box:0,due:todayS()});DC.m={q:'',a:''};save();render();toast('Карточка добавлена');break}break;
+    case 'cdel':{const dk=dcDeck(DC.det);if(dk){dk.cards=dk.cards.filter(c=>c.id!==id);save();render()}break}
+    case 'qdel':{const dk=dcDeck(DC.det);if(dk){dk.quiz.splice(+el.dataset.i,1);save();render()}break}
+    case 'copy':if(d)copyText(d.cards.map(c=>c.q.replace(/[\t\n]+/g,' ')+'\t'+c.a.replace(/[\t\n]+/g,' ')).join('\n')).then(()=>toast('Скопировано: вопрос и ответ через табуляцию'));break;
+    case 'dl':if(d){const t=d.cards.map(c=>c.q.replace(/[\t\n]+/g,' ')+'\t'+c.a.replace(/[\t\n]+/g,' ')).join('\n');solDl(new Blob([t],{type:'text/plain;charset=utf-8'}),(d.name.replace(/[\\/:*?"<>|]+/g,'_').slice(0,40)||'колода')+'.txt');toast('Файл для импорта в Anki сохранён')}break;
+    case 'reset':if(d&&confirm('Сбросить прогресс по всем карточкам колоды?')){d.cards.forEach(c=>{c.box=0;c.due=todayS()});save();render();toast('Прогресс сброшен')}break;
+    case 'ddel':if(d&&confirm('Удалить колоду «'+d.name+'» вместе с карточками?')){S.decks=S.decks.filter(x=>x.id!==id);DC.det=null;save();render();window.scrollTo(0,0);toast('Колода удалена')}break;
+  }
+});
+document.addEventListener('input',e=>{const i=e.target.id;
+  if(i==='dc-name')DC.f.name=e.target.value;else if(i==='dc-subj')DC.f.subj=e.target.value;else if(i==='dc-txt')DC.f.txt=e.target.value;else if(i==='dc-focus')DC.f.focus=e.target.value;
+  else if(i==='dc-mq')DC.m.q=e.target.value;else if(i==='dc-ma')DC.m.a=e.target.value});
+document.addEventListener('change',e=>{const t=e.target,k=t.dataset&&t.dataset.dce,dd=t.dataset&&t.dataset.dcd;
+  if(k){const [cid,f]=k.split('.'),dk=dcDeck(DC.det),c=dk&&dk.cards.find(x=>x.id===cid);if(c&&(f==='q'||f==='a')){const v=t.value.trim();if(!v){t.value=c[f];toast('Поле не может быть пустым');return}c[f]=v;save()}return}
+  if(dd){const dk=dcDeck(DC.det);if(!dk)return;if(dd==='name'){dk.name=t.value.trim().slice(0,60)||dk.name;const h=$('#dc-h1');if(h)h.textContent=dk.name;save()}else{dk.subj=t.value.trim().slice(0,40);save();render()}}});
+document.addEventListener('change',async e=>{
+  if(e.target.id==='dc-file'){const fs=[...e.target.files];e.target.value='';if(!fs.length)return;toast('Читаю файлы…');let ok=0,bad=0;
+    for(const f of fs){try{const x=(await readDoc(f)).trim();
+      if(x.length<20&&/\.pdf$/i.test(f.name)&&f.size<=10*1048576&&DC.pdf.length<2){DC.pdf.push(f);ok++;continue}
+      if(x.length<20){bad++;continue}
+      DC.f.txt=(DC.f.txt?DC.f.txt+'\n\n':'')+x;ok++}catch(err){bad++}}
+    DC.f.txt=DC.f.txt.slice(0,40000);if(!DC.f.name&&!DC.target&&fs.length===1)DC.f.name=fs[0].name.replace(/\.[^.]+$/,'').slice(0,60);
+    render();toast(ok?'Прочитано файлов: '+ok+(bad?'. Не вышло: '+bad:''):'Не получилось прочитать. Подойдут PDF, DOCX, TXT и MD');return}
+  if(e.target.id==='dc-ph'){const fs=[...e.target.files];e.target.value='';
+    for(const f of fs){if(DC.ph.length>=8){toast('Хватит восьми фото');break}const k=await hwPack(f);if(!k){toast('Не удалось открыть фото. Попробуй JPG или PNG');continue}DC.ph.push(k)}
+    render()}});
+document.addEventListener('keydown',e=>{
+  if(view!=='cards'||DC.mode!=='study'||!DC.ses||DC.ses.done||/INPUT|TEXTAREA|SELECT/.test(e.target.tagName))return;
+  if(e.key===' '||e.key==='Enter'){e.preventDefault();if(!DC.ses.flip){DC.ses.flip=true;render()}}
+  else if(DC.ses.flip&&'123'.includes(e.key)&&e.key){dcRate(+e.key-1)}});
 
 render();
 if(!bat(todayS())&&S.batSkip!==todayS())openBat();
