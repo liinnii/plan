@@ -784,18 +784,20 @@ function planHw(h){
 function hwCard(h){
   const i=hwInfo(h),d=hwDue(h),left=Math.max(0,h.min-i.doneMin-i.open.reduce((x,t)=>x+t.dur,0));
   const when=t=>WD[parseD(t.date).getDay()]+', '+parseD(t.date).getDate()+' '+MON[parseD(t.date).getMonth()]+' · '+t.time;
-  const th=h.th||[],sol=h.sol&&h.sol.items&&h.sol.items.length?h.sol:null,busy=HS.busy===h.id,o=HS.open===h.id;
+  const th=h.th||[],fl=h.fl||[],sol=h.sol&&h.sol.items&&h.sol.items.length?h.sol:null,busy=HS.busy===h.id,o=HS.open===h.id;
   return `<section class="card flat" style="display:flex;flex-direction:column;gap:10px">
     <div class="row" style="gap:8px;flex-wrap:wrap"><b class="grow" style="font-size:16px;min-width:0">${esc(h.subj)}</b><span class="chip ${d.cls}">⚑ ${d.txt}</span></div>
     ${h.title?`<div>${esc(h.title)}</div>`:''}
     ${th.length?`<div class="row" style="gap:10px;flex-wrap:wrap">${th.map((p,k)=>`<span style="position:relative;display:inline-block"><img class="hsth" src="${esc(p)}" alt="Фото ${k+1}"><button type="button" class="xdel" data-hw="phdel" data-id="${h.id}" data-i="${k}" aria-label="Убрать фото" style="position:absolute;top:-6px;right:-6px">×</button></span>`).join('')}</div>`:''}
+    ${hwFiles(fl,h.id)}
+    ${h.txt?hwTxtBox(h.id,h.txt):''}
     <div class="row" style="gap:6px"><span class="chip">${durLabel(h.min)}</span>${i.doneMin?`<span class="chip">сделано ${durLabel(i.doneMin)}</span>`:''}</div>
     ${i.open.length?`<div class="stack" style="gap:6px">${i.open.map(t=>`<div class="mini"><b style="font-variant-numeric:tabular-nums;color:var(--muted)">${when(t)}</b><span>${durLabel(t.dur)}</span></div>`).join('')}</div>`:'<div class="muted" style="font-size:13px">Пока не в плане.</div>'}
     ${left&&i.open.length?`<div class="banner"><span>Не поместилось: ${durLabel(left)}. Освободи время или сдвинь срок.</span></div>`:''}
-    <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn sm primary" data-hw="plan" data-id="${h.id}">${i.open.length?'Пересчитать':'В план'}</button><button class="btn sm" data-hw="solve" data-id="${h.id}"${busy?' disabled':''}>${sol?'Решить заново':'Решить'}</button>${sol?`<button class="btn sm" data-hw="sol" data-id="${h.id}" aria-expanded="${o}">${o?'Скрыть решение':'Показать решение'}</button>`:''}${th.length<4?`<label class="btn sm" style="cursor:pointer">+ Фото<input type="file" data-phf="${h.id}" accept="image/*" multiple hidden></label>`:''}<button class="btn sm" data-hw="done" data-id="${h.id}">Готово</button><button class="btn sm ghost" data-hw="del" data-id="${h.id}">Удалить</button></div>
-    ${busy?'<div class="chip" role="status">Решаю… это может занять до минуты</div>':''}
+    <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn sm primary" data-hw="plan" data-id="${h.id}">${i.open.length?'Пересчитать':'В план'}</button><button class="btn sm" data-hw="solve" data-id="${h.id}"${busy?' disabled':''}>${sol?'Решить заново':'Решить'}</button>${sol?`<button class="btn sm" data-hw="sol" data-id="${h.id}" aria-expanded="${o}">${o?'Скрыть решение':'Показать решение'}</button>`:''}${(th.length||fl.some(f=>f.t!=='doc'))?`<button class="btn sm" data-hw="ocr" data-id="${h.id}"${HS.ocr||busy?' disabled':''}>${h.txt?'Прочитать заново':'Прочитать текст'}</button>`:''}${fl.length<3?`<label class="btn sm" style="cursor:pointer">+ Файл<input type="file" data-flf="${h.id}" accept="${HWF}" multiple hidden></label>`:''}${th.length<4?`<label class="btn sm" style="cursor:pointer">+ Фото<input type="file" data-phf="${h.id}" accept="image/*" multiple hidden></label>`:''}<button class="btn sm" data-hw="done" data-id="${h.id}">Готово</button><button class="btn sm ghost" data-hw="del" data-id="${h.id}">Удалить</button></div>
+    ${busy?'<div class="chip" role="status">Решаю… это может занять до минуты</div>':''}${HS.ocr===h.id?'<div class="chip" role="status">Читаю текст…</div>':''}
     ${HS.errId===h.id&&HS.err?`<div class="banner"><span>${esc(HS.err)}</span></div>`:''}
-    ${HS.key===h.id?`<div class="stack" style="gap:8px"><div class="muted" style="font-size:13px">Чтобы ИИ мог решать, нужен бесплатный ключ Google Gemini. Получи его на <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> и вставь сюда. Ключ хранится только в этом браузере.</div><label>Ключ API<input type="password" id="hs-key" autocomplete="off" value="${esc(aiCfg().key||'')}" placeholder="AIza…"></label><button type="button" class="btn primary" data-hw="key" data-id="${h.id}">Сохранить и решить</button></div>`:''}
+    ${HS.key===h.id?hwKeyBox(h.id):''}
     ${sol&&o?hsBody(sol)+`<div class="row" style="gap:8px"><button type="button" class="btn sm" data-hw="copy" data-id="${h.id}">Копировать решение</button></div>`:''}
     <label>Срок<input type="date" data-hwdue="${h.id}" value="${h.due}"></label></section>`;
 }
@@ -808,12 +810,14 @@ function vHw(){
   (subs.length?'<div class="row" style="gap:6px">'+subs.slice(0,8).map(s=>'<button type="button" class="qc" data-hw="subj" data-v="'+esc(s)+'">'+esc(s)+'</button>').join('')+'</div>':'')+
   '<label>Что нужно сделать<input type="text" id="hw-t" placeholder="Например, конспект главы 5 и задачи" autocomplete="off" value="'+esc(NH.t)+'"></label>'+
   (NH.ph.length?'<div class="row" style="gap:10px;flex-wrap:wrap">'+NH.ph.map((p,k)=>'<span style="position:relative;display:inline-block"><img class="hsth" src="'+esc(p.thumb)+'" alt="Фото '+(k+1)+'"><button type="button" class="xdel" data-hw="phrm" data-i="'+k+'" aria-label="Убрать фото" style="position:absolute;top:-6px;right:-6px">×</button></span>').join('')+'</div>':'')+
-  (NH.ph.length<4?'<div class="row" style="gap:8px"><label class="btn" style="cursor:pointer">'+(NH.ph.length?'Ещё фото':'Прикрепить фото задания')+'<input type="file" data-phf="new" accept="image/*" multiple hidden></label></div>':'')+
+  '<div class="row" style="gap:8px;flex-wrap:wrap">'+(NH.ph.length<4?'<label class="btn" style="cursor:pointer">'+(NH.ph.length?'Ещё фото':'Прикрепить фото задания')+'<input type="file" data-phf="new" accept="image/*" multiple hidden></label>':'')+(NH.fl.length<3?'<label class="btn" style="cursor:pointer">Прикрепить Word или PDF<input type="file" data-flf="new" accept="'+HWF+'" multiple hidden></label>':'')+((NH.ph.length||NH.fl.some(f=>f.t!=='doc'))?'<button type="button" class="btn" data-hw="ocr" data-id="new"'+(HS.ocr||HS.busy?' disabled':'')+'>'+(HS.ocr==='new'?'Читаю…':NH.x?'Прочитать заново':'Прочитать текст')+'</button>':'')+'</div>'+hwFiles(NH.fl,'new')+
+  (HS.errId==='new'&&HS.err?'<div class="banner"><span>'+esc(HS.err)+'</span></div>':'')+(HS.key==='new'?hwKeyBox('new'):'')+(NH.x?hwTxtBox('new',NH.x):'')+
   '<label>Срок сдачи<input type="date" id="hw-d" min="'+todayS()+'" value="'+esc(NH.d)+'"></label><div class="muted" style="font-size:13px;margin-top:-4px">Если срок не указать, возьму ближайшую пару этого предмета из раздела «Пары».</div>'+
   '<label>Сколько времени уйдёт<select id="hw-m">'+[30,45,60,90,120,180,240].map(m=>'<option value="'+m+'"'+(m===NH.m?' selected':'')+'>'+durLabel(m)+'</option>').join('')+'</select></label>'+
   '<button type="button" class="btn primary" data-hw="add">Записать</button></div></section>'+
   (act.length?'<section class="card"><div class="row" style="gap:8px;flex-wrap:wrap"><h3 class="grow" style="font-size:16px">Надо сделать · '+act.length+'</h3><span class="chip">всего '+durLabel(tot)+'</span></div>'+
-    (un.length?'<div class="banner"><span>Не в плане: '+un.length+'. Могу сразу разложить всё по свободному времени, начиная с ближайших сроков.</span><button class="btn sm primary" data-hw="planall">Распределить всё</button></div>':'')+'</section>'+act.map(x=>hwCard(x.h)).join(''):'<section class="card"><div class="empty">Домашки пока нет. Запиши первую выше.</div></section>')+
+    '<div class="row" style="gap:6px;margin-top:10px"><button type="button" class="qc" data-hw="view" data-v="date" aria-pressed="'+(S.hwv!=='subj')+'">По срокам</button><button type="button" class="qc" data-hw="view" data-v="subj" aria-pressed="'+(S.hwv==='subj')+'">По предметам</button></div>'+
+    (un.length?'<div class="banner"><span>Не в плане: '+un.length+'. Могу сразу разложить всё по свободному времени, начиная с ближайших сроков.</span><button class="btn sm primary" data-hw="planall">Распределить всё</button></div>':'')+'</section>'+hwGroupsHtml(act):'<section class="card"><div class="empty">Домашки пока нет. Запиши первую выше.</div></section>')+
   (fin.length?'<section class="card"><h3 style="font-size:16px">Уже сделано · '+fin.length+'</h3><div class="stack" style="gap:8px;margin-top:10px">'+fin.map(x=>'<div class="li"><span><b>'+esc(x.h.subj)+'</b>'+(x.h.title?' <span class="muted">· '+esc(x.h.title)+'</span>':'')+'</span><button class="btn sm ghost" data-hw="del" data-id="'+x.h.id+'">Убрать</button></div>').join('')+'</div></section>':'')+
   vHsOld()+'</div>';
 }
@@ -823,28 +827,36 @@ document.addEventListener('click',async e=>{
   if(a==='subj'){const i=$('#hw-s');if(i){i.value=el.dataset.v;NH.s=el.dataset.v;const d=$('#hw-d');if(d&&!d.value){const n=nextLesson(el.dataset.v);if(n){d.value=n;NH.d=n}}}}
   else if(a==='add'){
     const subj=($('#hw-s').value||'').trim().slice(0,60),title=($('#hw-t').value||'').trim().slice(0,120);
-    if(!subj&&!title&&!NH.ph.length){toast('Напиши предмет или что задали, или приложи фото');$('#hw-s').focus();return}
+    if(!subj&&!title&&!NH.ph.length&&!NH.fl.length){toast('Напиши предмет или что задали, или приложи фото или файл');$('#hw-s').focus();return}
     const due=$('#hw-d').value||nextLesson(subj);
     if(!due){toast('Укажи срок или добавь пары этого предмета в раздел «Пары»');$('#hw-d').focus();return}
     if(due<todayS()){toast('Этот срок уже прошёл. Выбери дату не раньше сегодня.');return}
     const nid=uid();let okp=true;if(NH.ph.length)okp=await phPut(nid,NH.ph.map(p=>p.full));
-    S.hw.push({id:nid,subj:subj||'Без предмета',title,due,min:+$('#hw-m').value||60,done:false,th:NH.ph.map(p=>p.thumb)});
-    const hadPh=NH.ph.length;NH.s=NH.t=NH.d='';NH.m=60;NH.ph=[];save();render();
-    toast(hadPh?(okp?'Записала с фото. Можно нажать «Решить».':'Записала. Фото сохранятся только до перезагрузки страницы.'):'Записала. Нажми «В план», и я найду время.')}
+    if(NH.fl.length)okp=(await phPut('f:'+nid,NH.fl.map(f=>({n:f.n,t:f.t,b:f.b}))))&&okp;
+    S.hw.push({id:nid,subj:subj||'Без предмета',title,due,min:+$('#hw-m').value||60,done:false,th:NH.ph.map(p=>p.thumb),fl:NH.fl.map(f=>({n:f.n,t:f.t,sz:f.sz})),txt:NH.x.trim().slice(0,20000)});
+    const hadPh=NH.ph.length||NH.fl.length;NH.s=NH.t=NH.d=NH.x='';NH.m=60;NH.ph=[];NH.fl=[];save();render();
+    toast(hadPh?(okp?'Записала с вложениями. Можно нажать «Решить».':'Записала. Вложения сохранятся только до перезагрузки страницы.'):'Записала. Нажми «В план», и я найду время.')}
+  else if(a==='flopen'){const k=+el.dataset.i,f=id==='new'?NH.fl[k]:(await phGet('f:'+id))[k];if(!f){toast('Файл не найден');return}
+    const u=URL.createObjectURL(f.t==='pdf'?new Blob([f.b],{type:'application/pdf'}):f.b),l=document.createElement('a');l.href=u;l.target='_blank';l.rel='noopener';if(f.t!=='pdf')l.download=f.n;document.body.appendChild(l);l.click();l.remove();setTimeout(()=>URL.revokeObjectURL(u),60000)}
+  else if(a==='fldel'){const k=+el.dataset.i;if(id==='new'){NH.fl.splice(k,1)}else if(h){(h.fl||[]).splice(k,1);const old=await phGet('f:'+id);old.splice(k,1);await phPut('f:'+id,old);save()}render()}
+  else if(a==='view'){S.hwv=el.dataset.v==='subj'?'subj':'date';save();render()}
+  else if(a==='ocr'){HS.act='ocr';hwOcr(id)}
+  else if(a==='tcopy'){const tx=id==='new'?NH.x:(h&&h.txt)||'';if(!tx){toast('Нечего копировать');return}navigator.clipboard.writeText(tx).then(()=>toast('Текст скопирован'),()=>toast('Не удалось скопировать'))}
+  else if(a==='tdel'){if(id==='new')NH.x='';else if(h){delete h.txt;save()}render()}
   else if(a==='phrm'){NH.ph.splice(+el.dataset.i,1);render()}
   else if(a==='phdel'&&h){const k=+el.dataset.i;(h.th||[]).splice(k,1);const old=await phGet(h.id);old.splice(k,1);await phPut(h.id,old);save();render()}
-  else if(a==='solve'&&h){hwSolve(h)}
+  else if(a==='solve'&&h){HS.act='solve';hwSolve(h)}
   else if(a==='sol'&&h){HS.open=HS.open===id?null:id;render()}
   else if(a==='copy'&&h&&h.sol){navigator.clipboard.writeText(hsText(h.sol)).then(()=>toast('Скопировано'),()=>toast('Не удалось скопировать'))}
-  else if(a==='key'&&h){const k=(($('#hs-key')||{}).value||'').trim();if(!k){toast('Вставь ключ');return}
+  else if(a==='key'){const k=(($('#hs-key')||{}).value||'').trim();if(!k){toast('Вставь ключ');return}
     try{localStorage.setItem(AIK,JSON.stringify({key:k,model:aiCfg().model||'gemini-flash-latest'}))}catch(x){toast('Не удалось сохранить ключ в браузере');return}
-    HS.key=null;HS.err='';HS.errId=null;hwSolve(h)}
+    HS.key=null;HS.err='';HS.errId=null;if(HS.act==='ocr')hwOcr(id);else if(h)hwSolve(h)}
   else if(a==='plan'&&h){const r=planHw(h);render();toast(hwPlanMsg(r))}
   else if(a==='planall'){
     const list=S.hw.filter(x=>{const i=hwInfo(x);return !i.fin&&!i.open.length}).sort((x,y)=>x.due<y.due?-1:1);let parts=0,placed=0,left=0;
     list.forEach(x=>{const r=planHw(x);parts+=r.parts;placed+=r.placed;left+=r.left});render();toast(hwPlanMsg({parts,placed,left}))}
   else if(a==='done'&&h){h.done=true;S.tasks=S.tasks.filter(t=>!(t.hwId===h.id&&!t.done));save();render();toast('Домашка готова. Молодец!')}
-  else if(a==='del'&&h){if(!confirm('Удалить эту домашку и её запланированные части?'))return;S.hw=S.hw.filter(x=>x.id!==id);S.tasks=S.tasks.filter(t=>!(t.hwId===id&&!t.done));phDel(id);save();render()}
+  else if(a==='del'&&h){if(!confirm('Удалить эту домашку и её запланированные части?'))return;S.hw=S.hw.filter(x=>x.id!==id);S.tasks=S.tasks.filter(t=>!(t.hwId===id&&!t.done));phDel(id);phDel('f:'+id);save();render()}
 });
 document.addEventListener('change',e=>{
   const id=e.target.dataset&&e.target.dataset.hwdue;if(!id)return;const h=S.hw.find(x=>x.id===id);if(!h||!e.target.value)return;
@@ -853,8 +865,9 @@ document.addEventListener('change',e=>{
 
 /* ---------- фото и решение домашки (всё внутри раздела «Домашка») ---------- */
 if(!S.hws)S.hws=[];
-const NH={s:'',t:'',d:'',m:60,ph:[]};              // черновик новой домашки; ph=[{full,thumb}]
-let HS={busy:null,open:null,key:null,err:'',errId:null};
+const NH={s:'',t:'',d:'',m:60,ph:[],fl:[],x:''};
+if(!S.hwv)S.hwv='date';              // черновик новой домашки; ph=[{full,thumb}]
+let HS={busy:null,ocr:null,act:'solve',open:null,key:null,err:'',errId:null};
 const PHM=new Map();                                // кэш и запасное хранилище, если IndexedDB недоступна
 function phDB(){return new Promise((res,rej)=>{try{const r=indexedDB.open('ritm-photos',1);r.onupgradeneeded=()=>r.result.createObjectStore('p');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)}catch(e){rej(e)}})}
 async function phPut(id,arr){PHM.set(id,arr);try{const db=await phDB();await new Promise((res,rej)=>{const tx=db.transaction('p','readwrite');tx.objectStore('p').put(arr,id);tx.oncomplete=res;tx.onerror=()=>rej(tx.error)});db.close();return true}catch(e){return false}}
@@ -865,8 +878,8 @@ function hwPack(f){return new Promise(res=>{const u=URL.createObjectURL(f),im=ne
   im.onload=()=>{const sc=m=>{const k=Math.min(1,m/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(im.width*k));c.height=Math.max(1,Math.round(im.height*k));c.getContext('2d').drawImage(im,0,0,c.width,c.height);return c};
     const full=sc(1600).toDataURL('image/jpeg',0.8),thumb=sc(200).toDataURL('image/jpeg',0.6);URL.revokeObjectURL(u);res({full,thumb})};
   im.onerror=()=>{URL.revokeObjectURL(u);res(null)};im.src=u})}
-function hwPrompt(h,n){return 'Это домашнее задание студентки колледжа. Предмет: '+(h.subj||'не указан')+'.'+(h.title?' Что задали: '+h.title+'.':'')+
-  (n?' Условия заданий на приложенных фото ('+n+' шт.). Прочитай все задания и реши их по порядку.':' Реши задание по описанию.')+
+function hwPrompt(h,n,np){return 'Это домашнее задание студентки колледжа. Предмет: '+(h.subj||'не указан')+'.'+(h.title?' Что задали: '+h.title+'.':'')+(h.txt?' Текст задания: «'+h.txt.slice(0,8000)+'».':'')+
+  ((n||np)?' Условия заданий '+(n?'на приложенных фото ('+n+' шт.)':'')+(n&&np?' и ':'')+(np?'в приложенных PDF-файлах ('+np+' шт.)':'')+'. Прочитай все задания и реши их по порядку.':' Реши задание по описанию.')+
   ' Пиши по-русски, просто и понятно, как терпеливый репетитор. Формулы и степени пиши обычным текстом. Верни JSON строго такого вида: {"subject":"предмет в 1-3 словах","items":[{"task":"условие задания кратко","steps":["шаг решения","следующий шаг"],"answer":"итоговый ответ"}],"note":"если фото нечёткое, часть не разобрана или ответ неоднозначен, напиши об этом одной фразой, иначе пустая строка"}. Если задания не удалось разобрать, оставь items пустым и объясни в note.'}
 function hsNorm(j){if(Array.isArray(j))j={items:j};j=j||{};const it=Array.isArray(j.items)?j.items:[];
   return {subj:String(j.subject||'').slice(0,60),note:String(j.note||'').slice(0,300),
@@ -878,6 +891,93 @@ function hsBody(e){
     x.steps.map((s,k)=>'<div style="font-size:14px"><span class="muted">'+(k+1)+'.</span> '+esc(s)+'</div>').join('')+
     (x.answer?'<div><span class="chip" style="color:var(--accent);white-space:normal">Ответ: '+esc(x.answer)+'</span></div>':'')+'</div>').join('')+'</div>'}
 function hsWhen(ts){try{return new Date(ts).toLocaleString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}catch(x){return ''}}
+// общий вызов ИИ: фото (jpeg dataURL) и PDF (Blob)
+const hwB64=b=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(',')[1]);r.onerror=()=>rej({code:'img'});r.readAsDataURL(b)});
+async function hwAI(prompt,ph,pdfs){
+  pdfs=pdfs||[];
+  let sm=null;if(!pdfs.length){try{sm=scHasClaude()&&await window.claude.use('sample')}catch(x){}}
+  if(!sm&&!aiCfg().key)throw {code:'nokey'};
+  if(sm){const files=await Promise.all(ph.map(async d=>(await fetch(d)).blob()));return sm.json(prompt,{images:files,cache:false})}
+  const pd=await Promise.all(pdfs.map(async b=>({mime:'application/pdf',data:await hwB64(b)})));
+  return callAI(prompt,ph.map(d=>d.split(',')[1]).concat(pd))}
+function hwErr(err){const c=err&&err.code;
+  if(c==='not_granted')return 'Без разрешения я не смогу прочитать фото.';
+  if(c===400||c===401||c===403)return 'Ключ не подошёл или файл не приняли. Проверь ключ.';
+  if(c==='network')return 'Нет связи с ИИ. Проверь интернет.';
+  if(c==='img')return 'Не удалось открыть фото или файл. Попробуй JPG, PNG или PDF.';
+  if(c===429||c===503||c===500)return 'ИИ сейчас занят. Попробуй через минуту.';
+  return 'Не получилось. Попробуй более чёткое фото или файл.'}
+const HOCR='На фото и в приложенных PDF-файлах текст: с доски, из тетради, учебника или листа с заданием. Перепиши весь текст максимально точно, в том же порядке, с теми же переносами строк, нумерацией, формулами и знаками. Ничего не исправляй и не добавляй от себя. Если слово или кусок не разобрать, поставь [неразборчиво]. Если фото и файлов несколько, они идут по порядку, текст разных фото и файлов раздели пустой строкой. Верни JSON строго такого вида: {"text":"весь текст"}. Если текста нет, верни {"text":""}.';
+// текст из .docx без библиотек: читаем word/document.xml из zip
+function hwXml(xml){
+  const d=new DOMParser().parseFromString(xml,'application/xml'),W='http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+  const walk=n=>{let s='';for(const c of n.childNodes){if(c.nodeType!==1)continue;const l=c.localName;
+    if(l==='t')s+=c.textContent;else if(l==='tab')s+='\t';else if(l==='br'||l==='cr')s+='\n';else if(l!=='pPr'&&l!=='rPr')s+=walk(c)}return s};
+  return Array.from(d.getElementsByTagNameNS(W,'p')).map(walk).join('\n').replace(/\n{3,}/g,'\n\n').trim()}
+async function hwDocx(file){
+  const buf=new Uint8Array(await file.arrayBuffer()),dv=new DataView(buf.buffer),dec=new TextDecoder();
+  let e=-1;for(let i=buf.length-22;i>=Math.max(0,buf.length-65558);i--){if(dv.getUint32(i,true)===0x06054b50){e=i;break}}
+  if(e<0)throw new Error('zip');
+  const n=dv.getUint16(e+10,true);let p=dv.getUint32(e+16,true);
+  for(let k=0;k<n;k++){
+    if(dv.getUint32(p,true)!==0x02014b50)break;
+    const meth=dv.getUint16(p+10,true),csz=dv.getUint32(p+20,true),nl=dv.getUint16(p+28,true),el=dv.getUint16(p+30,true),cl=dv.getUint16(p+32,true),off=dv.getUint32(p+42,true);
+    const name=dec.decode(buf.subarray(p+46,p+46+nl));
+    if(name==='word/document.xml'){
+      const lnl=dv.getUint16(off+26,true),lel=dv.getUint16(off+28,true),st=off+30+lnl+lel,data=buf.subarray(st,st+csz);
+      let xml;
+      if(meth===0)xml=dec.decode(data);
+      else{const ds=new DecompressionStream('deflate-raw'),w=ds.writable.getWriter();w.write(data);w.close();xml=dec.decode(await new Response(ds.readable).arrayBuffer())}
+      return hwXml(xml)}
+    p+=46+nl+el+cl}
+  throw new Error('nodoc')}
+const hwSize=b=>b<1048576?Math.max(1,Math.round(b/1024))+' КБ':(b/1048576).toFixed(1)+' МБ';
+const HWF='.pdf,.docx,.doc,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword';
+function hwFiles(list,id){
+  if(!list.length)return '';
+  return '<div class="stack" style="gap:6px">'+list.map((f,k)=>'<div class="li" style="gap:6px"><button type="button" data-hw="flopen" data-id="'+id+'" data-i="'+k+'" style="text-align:left;min-width:0;flex:1;overflow-wrap:anywhere"><b>'+esc(f.n)+'</b> <span class="muted" style="font-size:13px">· '+(f.t==='pdf'?'PDF':'Word')+' · '+hwSize(f.sz)+'</span></button><button type="button" class="xdel" data-hw="fldel" data-id="'+id+'" data-i="'+k+'" aria-label="Убрать файл">×</button></div>').join('')+'</div>'}
+// распознаёт текст: id = 'new' (черновик) или id домашки. Word читаю сама, фото и PDF читает ИИ
+async function hwOcr(id){
+  if(HS.ocr||HS.busy)return;
+  const h=id==='new'?null:S.hw.find(x=>x.id===id);if(id!=='new'&&!h)return;
+  const ph=id==='new'?NH.ph.map(p=>p.full):await phGet(id);
+  const fl=id==='new'?NH.fl:await phGet('f:'+id);
+  const pdfs=fl.filter(f=>f.t==='pdf').map(f=>f.b),docs=fl.filter(f=>f.t==='docx');
+  if(!ph.length&&!pdfs.length&&!docs.length){toast('Сначала прикрепи фото или файл');return}
+  HS.ocr=id;HS.err='';HS.errId=null;HS.key=null;render();
+  try{
+    const parts=[];
+    for(const f of docs){try{const t=await hwDocx(f.b);if(t)parts.push('['+f.n+']\n'+t)}catch(x){}}
+    if(ph.length||pdfs.length){
+      const j=await hwAI(HOCR,ph,pdfs),t=String((j&&j.text)||'').trim();if(t)parts.push(t)}
+    const txt=parts.join('\n\n').trim().slice(0,20000);
+    if(!txt){HS.err='Не нашла текст. Попробуй сфотографировать ближе и без бликов.';HS.errId=id}
+    else if(id==='new')NH.x=txt;
+    else{h.txt=txt;save();toast('Текст готов. Его можно поправить и скопировать')}
+  }catch(err){
+    if(err&&err.code==='nokey'){HS.key=id;HS.act='ocr'}
+    else{HS.err=hwErr(err);HS.errId=id;if([400,401,403].includes(err&&err.code)){HS.key=id;HS.act='ocr'}}}
+  HS.ocr=null;render()}
+function hwKeyBox(id){return `<div class="stack" style="gap:8px"><div class="muted" style="font-size:13px">Чтобы ИИ мог читать и решать, нужен бесплатный ключ Google Gemini. Получи его на <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> и вставь сюда. Ключ хранится только в этом браузере.</div><label>Ключ API<input type="password" id="hs-key" autocomplete="off" value="${esc(aiCfg().key||'')}" placeholder="AIza…"></label><button type="button" class="btn primary" data-hw="key" data-id="${id}">Сохранить и продолжить</button></div>`}
+function hwTxtBox(id,txt){return `<div class="stack" style="gap:6px"><label>Текст задания<textarea ${id==='new'?'id="hw-x"':'data-hwtxt="'+id+'"'} rows="5">${esc(txt)}</textarea></label><div class="row" style="gap:8px"><button type="button" class="btn sm" data-hw="tcopy" data-id="${id}">Копировать текст</button><button type="button" class="btn sm ghost" data-hw="tdel" data-id="${id}">Убрать</button></div></div>`}
+// группировка активной домашки: по срокам или по предметам
+function hwGroups(act){
+  const m=new Map(),subj=S.hwv==='subj',list=act.slice();
+  if(subj)list.sort((a,b)=>(a.h.subj||'').localeCompare(b.h.subj||'','ru')||(a.h.due<b.h.due?-1:1));
+  else list.sort((a,b)=>a.h.due<b.h.due?-1:1);
+  list.forEach(x=>{let k,t,sub='';
+    if(subj){k=x.h.subj||'Без предмета';t=k}
+    else{const n=dueIn(x.h.due),dd=parseD(x.h.due),lab=WD[dd.getDay()]+', '+dd.getDate()+' '+MON[dd.getMonth()];
+      if(n<0){k='late';t='Просрочено'}else{k=x.h.due;t=n===0?'Сегодня':n===1?'Завтра':lab;sub=n<=1?lab:''}}
+    if(!m.has(k))m.set(k,{t,sub,items:[]});m.get(k).items.push(x)});
+  return [...m.values()]}
+function hwGroupsHtml(act){
+  return hwGroups(act).map(g=>{const tot=g.items.reduce((s,x)=>s+Math.max(0,x.h.min-x.i.doneMin),0);
+    return '<div class="row" style="gap:8px;margin-top:6px"><h3 class="grow" style="font-size:15px">'+esc(g.t)+(g.sub?' <span class="muted" style="font-weight:500">· '+esc(g.sub)+'</span>':'')+'</h3><span class="chip">'+g.items.length+' · '+durLabel(tot)+'</span></div>'+g.items.map(x=>hwCard(x.h)).join('')}).join('')}
+// правки текста с фото в карточке
+document.addEventListener('input',e=>{const id=e.target.dataset&&e.target.dataset.hwtxt;if(!id)return;const h=S.hw.find(x=>x.id===id);if(h)h.txt=e.target.value});
+document.addEventListener('change',e=>{const id=e.target.dataset&&e.target.dataset.hwtxt;if(id)save()});
+
 function vHsOld(){
   const H=S.hws||[];if(!H.length)return '';
   return '<section class="card"><div class="row" style="gap:8px"><h3 class="grow" style="font-size:16px">Прежние решения по фото · '+H.length+'</h3><button type="button" class="btn sm ghost" data-hs="hclear">Очистить</button></div><div class="stack" style="gap:8px;margin-top:10px">'+
@@ -896,32 +996,40 @@ document.addEventListener('change',async e=>{const t=e.target,w=t&&t.dataset&&t.
   else{const old=await phGet(h.id),ok=await phPut(h.id,old.concat(add.map(p=>p.full)));h.th=(h.th||[]).concat(add.map(p=>p.thumb));save();if(!ok)toast('Фото сохранятся только до перезагрузки страницы')}
   render()});
 // черновик формы «Новая домашка» не теряется при перерисовке
-document.addEventListener('input',e=>{const i=e.target.id;if(i==='hw-s')NH.s=e.target.value;else if(i==='hw-t')NH.t=e.target.value});
+document.addEventListener('input',e=>{const i=e.target.id;if(i==='hw-s')NH.s=e.target.value;else if(i==='hw-t')NH.t=e.target.value;else if(i==='hw-x')NH.x=e.target.value});
 document.addEventListener('change',e=>{const i=e.target.id;if(i==='hw-d')NH.d=e.target.value;else if(i==='hw-m')NH.m=+e.target.value||60});
 async function hwSolve(h){
-  if(HS.busy)return;
-  const ph=await phGet(h.id);
-  if(!(h.title||'').trim()&&!ph.length){toast('Добавь описание задания или фото');return}
-  let sm=null;try{sm=scHasClaude()&&await window.claude.use('sample')}catch(x){}
-  if(!sm&&!aiCfg().key){HS.key=h.id;render();return}
+  if(HS.busy||HS.ocr)return;
+  const ph=await phGet(h.id),pdfs=(await phGet('f:'+h.id)).filter(f=>f.t==='pdf').map(f=>f.b);
+  if(!(h.title||'').trim()&&!h.txt&&!ph.length&&!pdfs.length){toast('Добавь описание, фото или файл задания');return}
   HS.busy=h.id;HS.err='';HS.errId=null;HS.key=null;render();
-  const prompt=hwPrompt(h,ph.length);
   try{
-    let j;
-    if(sm){const files=await Promise.all(ph.map(async d=>(await fetch(d)).blob()));j=await sm.json(prompt,{images:files,cache:false})}
-    else j=await callAI(prompt,ph.map(d=>d.split(',')[1]));
-    const r=hsNorm(j);
+    const r=hsNorm(await hwAI(hwPrompt(h,ph.length,pdfs.length),ph,pdfs));
     if(!r.items.length){HS.err=r.note||'Не получилось разобрать задание. Попробуй более чёткое фото или опиши задание словами.';HS.errId=h.id}
     else{h.sol=Object.assign({ts:Date.now()},r);save();HS.open=h.id;toast('Готово. Решение в карточке')}
   }catch(err){
-    const c=err&&err.code;HS.errId=h.id;
-    if(c==='not_granted')HS.err='Без разрешения я не смогу прочитать фото.';
-    else if(c===400||c===401||c===403){HS.key=h.id;HS.err='Ключ не подошёл или фото не приняли. Проверь ключ.'}
-    else if(c==='network')HS.err='Нет связи с ИИ. Проверь интернет.';
-    else if(c==='img')HS.err='Не удалось открыть фото. Попробуй JPG или PNG.';
-    else if(c===429||c===503||c===500)HS.err='ИИ сейчас занят. Попробуй через минуту.';
-    else HS.err='Не получилось решить. Попробуй более чёткое фото.'}
+    if(err&&err.code==='nokey'){HS.key=h.id;HS.act='solve'}
+    else{HS.err=hwErr(err);HS.errId=h.id;if([400,401,403].includes(err&&err.code)){HS.key=h.id;HS.act='solve'}}}
   HS.busy=null;render()}
+// прикрепление Word и PDF: в форму (data-flf="new") или в карточку (data-flf=id)
+document.addEventListener('change',async e=>{const t=e.target,w=t&&t.dataset&&t.dataset.flf;if(!w)return;
+  const fs=[...t.files];t.value='';
+  const h=w==='new'?null:S.hw.find(x=>x.id===w);if(w!=='new'&&!h)return;
+  const room=3-(w==='new'?NH.fl.length:(h.fl||[]).length),add=[];let txt='';
+  for(const f of fs){
+    if(add.length>=room){toast('Хватит трёх файлов на одну домашку');break}
+    const nm=f.name||'файл',ty=/\.pdf$/i.test(nm)||f.type==='application/pdf'?'pdf':/\.docx$/i.test(nm)?'docx':/\.doc$/i.test(nm)?'doc':'';
+    if(!ty){toast('Принимаю Word (.docx, .doc) и PDF');continue}
+    if(f.size>10*1048576){toast('Файл «'+nm+'» больше 10 МБ');continue}
+    add.push({n:nm,t:ty,sz:f.size,b:f});
+    if(ty==='docx'){try{const d=await hwDocx(f);if(d)txt+=(txt?'\n\n':'')+'['+nm+']\n'+d;else toast('В файле «'+nm+'» не нашла текста')}catch(x){toast('Не получилось прочитать «'+nm+'». Файл всё равно прикреплён')}}
+    else if(ty==='doc')toast('Старый .doc я только прикреплю. Чтобы я прочитала текст, сохрани как .docx')}
+  if(!add.length)return;
+  if(w==='new'){NH.fl.push(...add);if(txt)NH.x=((NH.x?NH.x+'\n\n':'')+txt).slice(0,20000)}
+  else{const old=await phGet('f:'+h.id),ok=await phPut('f:'+h.id,old.concat(add.map(x=>({n:x.n,t:x.t,b:x.b}))));
+    h.fl=(h.fl||[]).concat(add.map(x=>({n:x.n,t:x.t,sz:x.sz})));if(txt)h.txt=((h.txt?h.txt+'\n\n':'')+txt).slice(0,20000);save();if(!ok)toast('Файлы сохранятся только до перезагрузки страницы')}
+  render()});
+
 // прежняя история решений по фото (если она была)
 document.addEventListener('click',e=>{const el=e.target.closest('[data-hs]');if(!el)return;const a=el.dataset.hs,id=el.dataset.id;
   if(a==='open'){HS.open=HS.open===id?null:id;render()}
@@ -1788,7 +1896,7 @@ async function callAI(prompt,imgs){
   busy=null;
   for(const model of list){
     let r;
-    try{r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(model)+':generateContent',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':c.key},body:JSON.stringify({contents:[{parts:[{text:prompt}].concat((imgs||[]).map(d=>({inline_data:{mime_type:'image/jpeg',data:d}})))}],generationConfig:{responseMimeType:'application/json',temperature:0.4}})})}
+    try{r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(model)+':generateContent',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':c.key},body:JSON.stringify({contents:[{parts:[{text:prompt}].concat((imgs||[]).map(d=>({inline_data:{mime_type:d&&d.mime?d.mime:'image/jpeg',data:d&&d.mime?d.data:d}})))}],generationConfig:{responseMimeType:'application/json',temperature:0.4}})})}
     catch(e){throw {code:'network'}}
     if(r.status===404){let m='';try{m=((await r.json()).error||{}).message||''}catch(e){}last={code:404,msg:m,model};continue}
     if(!r.ok){let m='';try{m=((await r.json()).error||{}).message||''}catch(e){}if(r.status===503||r.status===500||r.status===429){last=busy={code:r.status,msg:m};continue}throw {code:r.status,msg:m}}
