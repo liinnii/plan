@@ -795,7 +795,7 @@ function hwCard(h){
     ${i.open.length?`<div class="stack" style="gap:6px">${i.open.map(t=>`<div class="mini"><b style="font-variant-numeric:tabular-nums;color:var(--muted)">${when(t)}</b><span>${durLabel(t.dur)}</span></div>`).join('')}</div>`:'<div class="muted" style="font-size:13px">Пока не в плане.</div>'}
     ${left&&i.open.length?`<div class="banner"><span>Не поместилось: ${durLabel(left)}. Освободи время или сдвинь срок.</span></div>`:''}
     <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn sm primary" data-hw="plan" data-id="${h.id}">${i.open.length?'Пересчитать':'В план'}</button><button class="btn sm" data-hw="solve" data-id="${h.id}"${busy?' disabled':''}>${sol?'Решить заново':'Решить'}</button>${sol?`<button class="btn sm" data-hw="sol" data-id="${h.id}" aria-expanded="${o}">${o?'Скрыть решение':'Показать решение'}</button>`:''}${(th.length||fl.some(f=>f.t!=='doc'))?`<button class="btn sm" data-hw="ocr" data-id="${h.id}"${HS.ocr||busy?' disabled':''}>${h.txt?'Прочитать заново':'Прочитать текст'}</button>`:''}${fl.length<3?`<label class="btn sm" style="cursor:pointer">+ Файл<input type="file" data-flf="${h.id}" accept="${HWF}" multiple hidden></label>`:''}${th.length<4?`<label class="btn sm" style="cursor:pointer">+ Фото<input type="file" data-phf="${h.id}" accept="image/*" multiple hidden></label>`:''}<button class="btn sm" data-hw="done" data-id="${h.id}">Готово</button><button class="btn sm ghost" data-hw="del" data-id="${h.id}">Удалить</button></div>
-    ${busy?'<div class="chip" role="status">Решаю… это может занять до минуты</div>':''}${HS.ocr===h.id?'<div class="chip" role="status">Читаю текст…</div>':''}
+    ${busy?'<div class="chip" role="status">Решаю подробно… это может занять до пары минут</div>':''}${HS.ocr===h.id?'<div class="chip" role="status">Читаю текст…</div>':''}
     ${HS.errId===h.id&&HS.err?`<div class="banner"><span>${esc(HS.err)}</span></div>`:''}
     ${HS.key===h.id?hwKeyBox(h.id):''}
     ${sol&&o?hsBody(sol)+`<div class="row" style="gap:8px"><button type="button" class="btn sm" data-hw="copy" data-id="${h.id}">Копировать решение</button></div>`:''}
@@ -878,28 +878,28 @@ function hwPack(f){return new Promise(res=>{const u=URL.createObjectURL(f),im=ne
   im.onload=()=>{const sc=m=>{const k=Math.min(1,m/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(im.width*k));c.height=Math.max(1,Math.round(im.height*k));c.getContext('2d').drawImage(im,0,0,c.width,c.height);return c};
     const full=sc(1600).toDataURL('image/jpeg',0.8),thumb=sc(200).toDataURL('image/jpeg',0.6);URL.revokeObjectURL(u);res({full,thumb})};
   im.onerror=()=>{URL.revokeObjectURL(u);res(null)};im.src=u})}
-function hwPrompt(h,n,np){return 'Это домашнее задание студентки колледжа. Предмет: '+(h.subj||'не указан')+'.'+(h.title?' Что задали: '+h.title+'.':'')+(h.txt?' Текст задания: «'+h.txt.slice(0,8000)+'».':'')+
-  ((n||np)?' Условия заданий '+(n?'на приложенных фото ('+n+' шт.)':'')+(n&&np?' и ':'')+(np?'в приложенных PDF-файлах ('+np+' шт.)':'')+'. Прочитай все задания и реши их по порядку.':' Реши задание по описанию.')+
-  ' Пиши по-русски, просто и понятно, как терпеливый репетитор. Формулы и степени пиши обычным текстом. Верни JSON строго такого вида: {"subject":"предмет в 1-3 словах","items":[{"task":"условие задания кратко","steps":["шаг решения","следующий шаг"],"answer":"итоговый ответ"}],"note":"если фото нечёткое, часть не разобрана или ответ неоднозначен, напиши об этом одной фразой, иначе пустая строка"}. Если задания не удалось разобрать, оставь items пустым и объясни в note.'}
+function hwPrompt(h,n,np){return 'Ты репетитор и должна именно РЕШИТЬ домашнее задание студентки колледжа, а не пересказывать его. Предмет: '+(h.subj||'не указан')+'.'+(h.title?' Что задали: '+h.title+'.':'')+(h.txt?' Текст задания: «'+h.txt.slice(0,8000)+'».':'')+
+  ((n||np)?' Условия заданий '+(n?'на приложенных фото ('+n+' шт.)':'')+(n&&np?' и ':'')+(np?'в приложенных PDF-файлах ('+np+' шт.)':'')+'. Прочитай все задания и выполни каждое полностью, по порядку.':' Выполни задание по описанию.')+
+  ' Правила. 1) Поле task: только короткое условие в одну строку. 2) Поле steps: настоящее решение по шагам, с конкретными вычислениями, подстановкой чисел, рассуждениями или применением правил. Не повторяй в шагах условие. 3) Поле answer: конкретный итоговый ответ. 4) Если задание письменное (сочинение, эссе, конспект, ответ на вопрос, перевод, пересказ, таблица), напиши готовый текст целиком в answer, а в steps дай короткий план. 5) Никогда не оставляй steps и answer пустыми. Если данных не хватает, реши по самым разумным допущениям и скажи об этом в note. 6) Объём: решение должно быть очень подробным и развёрнутым, как у хорошего репетитора на уроке или в учебнике. К каждому заданию дай: правило или теорию, на которую опираешься; решение минимум в 5-8 шагов, где каждый шаг объяснён 2-5 предложениями (что делаем, почему и как); проверку результата; итоговый ответ полным предложением. Письменные работы пиши развёрнуто, не короче 250-300 слов, если объём не указан, с аргументами и примерами. Не сокращай и не экономь слова. Пиши по-русски, просто и понятно. Формулы и степени пиши обычным текстом. Верни JSON строго такого вида: {"subject":"предмет в 1-3 словах","items":[{"task":"короткое условие","steps":["шаг решения","следующий шаг"],"answer":"итоговый ответ"}],"note":"если фото нечёткое, часть не разобрана или есть допущения, напиши об этом одной фразой, иначе пустая строка"}. Если задания совсем не удалось разобрать, оставь items пустым и объясни в note.'}
 function hsNorm(j){if(Array.isArray(j))j={items:j};j=j||{};const it=Array.isArray(j.items)?j.items:[];
-  return {subj:String(j.subject||'').slice(0,60),note:String(j.note||'').slice(0,300),
-    items:it.slice(0,20).map(x=>x||{}).map(x=>({task:String(x.task||'').slice(0,400),steps:(Array.isArray(x.steps)?x.steps:[]).slice(0,25).map(s=>String(s).slice(0,500)),answer:String(x.answer||'').slice(0,400)}))}}
+  return {subj:String(j.subject||'').slice(0,60),note:String(j.note||'').slice(0,600),
+    items:it.slice(0,30).map(x=>x||{}).map(x=>({task:String(x.task||'').slice(0,600),steps:(Array.isArray(x.steps)?x.steps:[]).slice(0,40).map(s=>String(s).slice(0,4000)),answer:String(x.answer||'').slice(0,15000)}))}}
 function hsText(e){return (e.subj||'Домашка')+'\n\n'+e.items.map((x,i)=>(i+1)+'. '+x.task+'\n'+x.steps.map((s,k)=>'   '+(k+1)+') '+s).join('\n')+(x.answer?'\n   Ответ: '+x.answer:'')).join('\n\n')+(e.note?'\n\n'+e.note:'')}
 function hsBody(e){
   return (e.note?'<div class="banner"><span>'+esc(e.note)+'</span></div>':'')+
   '<div class="stack" style="gap:8px;margin-top:10px">'+e.items.map((x,i)=>'<div class="li" style="flex-direction:column;align-items:stretch;gap:6px"><b>'+(e.items.length>1?(i+1)+'. ':'')+esc(x.task)+'</b>'+
-    x.steps.map((s,k)=>'<div style="font-size:14px"><span class="muted">'+(k+1)+'.</span> '+esc(s)+'</div>').join('')+
-    (x.answer?'<div><span class="chip" style="color:var(--accent);white-space:normal">Ответ: '+esc(x.answer)+'</span></div>':'')+'</div>').join('')+'</div>'}
+    x.steps.map((s,k)=>'<div style="font-size:14px;white-space:pre-wrap"><span class="muted">'+(k+1)+'.</span> '+esc(s)+'</div>').join('')+
+    (x.answer?(x.answer.length>90||x.answer.includes('\n')?'<div style="font-size:14px;white-space:pre-wrap;border-left:3px solid var(--accent);padding-left:10px"><b style="color:var(--accent)">Ответ:</b> '+esc(x.answer)+'</div>':'<div><span class="chip" style="color:var(--accent);white-space:normal">Ответ: '+esc(x.answer)+'</span></div>'):'')+'</div>').join('')+'</div>'}
 function hsWhen(ts){try{return new Date(ts).toLocaleString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}catch(x){return ''}}
 // общий вызов ИИ: фото (jpeg dataURL) и PDF (Blob)
 const hwB64=b=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(',')[1]);r.onerror=()=>rej({code:'img'});r.readAsDataURL(b)});
-async function hwAI(prompt,ph,pdfs){
+async function hwAI(prompt,ph,pdfs,o){
   pdfs=pdfs||[];
   let sm=null;if(!pdfs.length){try{sm=scHasClaude()&&await window.claude.use('sample')}catch(x){}}
   if(!sm&&!aiCfg().key)throw {code:'nokey'};
   if(sm){const files=await Promise.all(ph.map(async d=>(await fetch(d)).blob()));return sm.json(prompt,{images:files,cache:false})}
   const pd=await Promise.all(pdfs.map(async b=>({mime:'application/pdf',data:await hwB64(b)})));
-  return callAI(prompt,ph.map(d=>d.split(',')[1]).concat(pd))}
+  return callAI(prompt,ph.map(d=>d.split(',')[1]).concat(pd),o)}
 function hwErr(err){const c=err&&err.code;
   if(c==='not_granted')return 'Без разрешения я не смогу прочитать фото.';
   if(c===400||c===401||c===403)return 'Ключ не подошёл или файл не приняли. Проверь ключ.';
@@ -1004,7 +1004,13 @@ async function hwSolve(h){
   if(!(h.title||'').trim()&&!h.txt&&!ph.length&&!pdfs.length){toast('Добавь описание, фото или файл задания');return}
   HS.busy=h.id;HS.err='';HS.errId=null;HS.key=null;render();
   try{
-    const r=hsNorm(await hwAI(hwPrompt(h,ph.length,pdfs.length),ph,pdfs));
+    const p=hwPrompt(h,ph.length,pdfs.length),SO={models:['gemini-2.5-flash','gemini-flash-latest'],cfg:{temperature:0.2,maxOutputTokens:32768}};
+    const lazy=r=>r.items.length&&r.items.every(x=>{const a=x.answer.trim().toLowerCase(),t=x.task.trim().toLowerCase();return (!x.steps.length&&!a)||(!x.steps.length&&a===t)});
+    const short=r=>r.items.length&&r.items.reduce((t,x)=>t+x.answer.length+x.steps.join('').length,0)<300*r.items.length;
+    let r=hsNorm(await hwAI(p,ph,pdfs,SO));
+    const retry=async m=>{try{const r2=hsNorm(await hwAI(p+m,ph,pdfs,SO));if(r2.items.length)r=r2}catch(x){}};
+    if(lazy(r))await retry(' ВАЖНО: в прошлый раз ты только переписала условие. Теперь выполни каждое задание по-настоящему: дай решение по шагам и конкретный ответ.');
+    else if(short(r))await retry(' ВАЖНО: в прошлый раз решение вышло слишком коротким. Разверни его: добавь правило или теорию, объясни каждый шаг несколькими предложениями, добавь проверку и полный итоговый ответ. Письменные работы пиши большим развёрнутым текстом.');
     if(!r.items.length){HS.err=r.note||'Не получилось разобрать задание. Попробуй более чёткое фото или опиши задание словами.';HS.errId=h.id}
     else{h.sol=Object.assign({ts:Date.now()},r);save();HS.open=h.id;toast('Готово. Решение в карточке')}
   }catch(err){
@@ -1889,14 +1895,14 @@ function openModal(id){
 let AIS=null;
 const AIK='ritm-ai';
 const aiCfg=()=>{try{return JSON.parse(localStorage.getItem(AIK))||{}}catch(e){return {}}};
-async function callAI(prompt,imgs){
-  const c=aiCfg(),list=[(c.model||'').trim(),'gemini-3.5-flash-lite','gemini-2.5-flash-lite','gemini-flash-latest','gemini-2.5-flash','gemini-3.1-flash-lite'].filter((m,i,a)=>m&&a.indexOf(m)===i);
+async function callAI(prompt,imgs,o){
+  const c=aiCfg(),list=((o&&o.models)||[]).concat([(c.model||'').trim(),'gemini-3.5-flash-lite','gemini-2.5-flash-lite','gemini-flash-latest','gemini-2.5-flash','gemini-3.1-flash-lite']).filter((m,i,a)=>m&&a.indexOf(m)===i);
   let last={code:404},busy=null;
   for(let round=0;round<5;round++){
   busy=null;
   for(const model of list){
     let r;
-    try{r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(model)+':generateContent',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':c.key},body:JSON.stringify({contents:[{parts:[{text:prompt}].concat((imgs||[]).map(d=>({inline_data:{mime_type:d&&d.mime?d.mime:'image/jpeg',data:d&&d.mime?d.data:d}})))}],generationConfig:{responseMimeType:'application/json',temperature:0.4}})})}
+    try{r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(model)+':generateContent',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':c.key},body:JSON.stringify({contents:[{parts:[{text:prompt}].concat((imgs||[]).map(d=>({inline_data:{mime_type:d&&d.mime?d.mime:'image/jpeg',data:d&&d.mime?d.data:d}})))}],generationConfig:Object.assign({responseMimeType:'application/json',temperature:0.4},(o&&o.cfg)||{})})})}
     catch(e){throw {code:'network'}}
     if(r.status===404){let m='';try{m=((await r.json()).error||{}).message||''}catch(e){}last={code:404,msg:m,model};continue}
     if(!r.ok){let m='';try{m=((await r.json()).error||{}).message||''}catch(e){}if(r.status===503||r.status===500||r.status===429){last=busy={code:r.status,msg:m};continue}throw {code:r.status,msg:m}}
