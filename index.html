@@ -358,6 +358,24 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
   .now .btn.primary{flex-basis:100%}
 }
 @media (max-width:860px){.nav button{font-size:10px}}
+/* упрощение: день, неделя, пары */
+.tmore summary{list-style:none;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:var(--soft);cursor:pointer;font-weight:700;color:var(--muted)}
+.tmore summary::-webkit-details-marker{display:none}
+.tmore[open]{flex-basis:100%}.tmore .row{margin-top:8px}
+.day.empty-d{flex-direction:row;align-items:center;justify-content:space-between;padding:12px 16px;box-shadow:none;border:1px solid var(--line)}
+.pd{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:10px;align-items:center;text-align:left;padding:12px 14px;border-radius:16px;background:var(--surface2);border:1.5px solid transparent;width:100%}
+.pd.today{border-color:var(--accent);background:var(--soft2)}
+.pdn{font-weight:700}.pdb{display:flex;flex-direction:column;gap:2px;min-width:0}
+.pdl{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+@media (max-width:560px){
+ .btn{min-height:44px}.btn.sm{min-height:40px}
+ .ttl{grid-template-columns:24px minmax(0,1fr) 32px;padding:8px;gap:6px}
+ .ttl .n{width:24px;height:24px}
+ .ttl .f input{font-size:16px;padding:10px;min-height:44px}
+ .head p{font-size:14px}
+ .card{padding:16px}
+}
+
 .ask{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(150px + env(safe-area-inset-bottom,0px));width:min(420px,calc(100% - 32px));z-index:55;padding:14px}
 @media (min-width:861px){.ask{bottom:84px}}
 .chat{display:flex;flex-direction:column;gap:10px}
@@ -1147,16 +1165,12 @@ function schSync(d){const l=(S.sch.les&&S.sch.les[d])||[],ok=l.filter(x=>x.a&&x.
 document.addEventListener('change',e=>{const k=e.target.dataset&&e.target.dataset.ls;if(!k)return;const [d,i,f]=k.split('.'),l=(S.sch.les||{})[d],x=l&&l[+i];if(!x)return;x[f]=e.target.value;
   if((f==='a'||f==='b')&&l.every(y=>y.a))l.sort((p,q)=>toM(p.a)-toM(q.a));schSync(d);save();render()});
 let schWeek=mondayOf(todayS());
-function vWeekCal(){const c=S.sch,les=c.les||{},a=parseD(schWeek),b=parseD(addDays(schWeek,6)),t=todayS();
-  const days=[0,1,2,3,4,5,6].map(i=>addDays(schWeek,i)).filter(d=>{const w=parseD(d).getDay();return w!==0||(les[0]&&les[0].length)||c.days[0]});
-  return `<section class="card"><div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:10px"><div><div class="eyebrow">Неделя</div><h3 style="font-size:18px">${a.getDate()} ${MON[a.getMonth()]} — ${b.getDate()} ${MON[b.getMonth()]}</h3></div>
-  <div class="dayswitch"><button data-act="schwk" data-n="-1" aria-label="Прошлая неделя">‹</button><button class="today" data-act="schwk" data-n="0">Эта неделя</button><button data-act="schwk" data-n="1" aria-label="Следующая неделя">›</button></div></div>
-  <div class="week" style="margin-top:12px">${days.map(d=>{const w=parseD(d).getDay(),l=les[w]||[],r=c.days[w];
-    return `<article class="day ${d===t?'is-today':''}"><header><button data-act="schgo" data-d="${w}">${WD[w]}, ${parseD(d).getDate()}</button><span class="muted" style="font-size:12px">${r&&r[0]&&r[1]?r[0]+'–'+r[1]:'нет пар'}</span></header>
-    ${l.map((x,i)=>`<div class="mini"><b style="font-variant-numeric:tabular-nums;color:var(--muted)">${x.a||'··'}</b><span>${esc(x.t||'Пара '+(i+1))}${x.r?' · '+esc(x.r):''}</span></div>`).join('')}
-    ${!l.length&&r&&r[0]?'<span class="muted" style="font-size:13px">Без списка предметов</span>':''}
-    ${!l.length&&!(r&&r[0])?'<span class="muted" style="font-size:13px">Свободный день</span>':''}</article>`}).join('')}</div>
-  <p class="muted" style="font-size:12px;margin-top:10px">Расписание повторяется каждую неделю. Нажми на день, чтобы поправить пары.</p></section>`}
+function vWeekCal(){const c=S.sch,les=c.les||{},td=new Date().getDay();
+  const days=[1,2,3,4,5,6,0].filter(w=>w!==0||(les[0]&&les[0].length)||(c.days[0]&&c.days[0][0]));
+  return `<section class="card"><h3 style="font-size:18px">Пары на неделе</h3>
+  <div class="stack" style="gap:8px;margin-top:12px">${days.map(w=>{const l=(les[w]||[]).filter(x=>x.t||x.a),r=c.days[w],has=r&&r[0]&&r[1];
+    return `<button type="button" class="pd ${w===td?'today':''}" data-act="schgo" data-d="${w}"><span class="pdn">${WD[w]}</span><span class="pdb">${has?`<b>${r[0]}–${r[1]}</b>`:'<span class="muted">свободно</span>'}${l.map(x=>`<span class="pdl">${x.a?x.a+' ':''}${esc(x.t||'Пара')}${x.r?' · '+esc(x.r):''}</span>`).join('')}</span><span class="sl-chev" aria-hidden="true">›</span></button>`}).join('')}</div>
+  <p class="muted" style="font-size:12px;margin-top:10px">Повторяется каждую неделю. Нажми на день, чтобы поправить пары.</p></section>`}
 function vTT(){const c=S.sch,les=c.les||{},td=new Date().getDay(),order=[1,2,3,4,5,6,0];
   return `<section class="card"><h3 style="font-size:18px">Редактировать пары</h3><p class="muted" style="font-size:13px">Каждая пара отдельной строкой: время, предмет, аудитория. Начало и конец дня считаются сами. Можно загрузить скриншот выше и потом поправить.</p>
   <div class="stack" style="gap:12px;margin-top:12px">${order.filter(d=>d!==0||(les[d]&&les[d].length)||c.days[d]).map(d=>{const l=les[d]||[],r=c.days[d];
@@ -1301,17 +1315,20 @@ function cfCard(c){
   if(c.d)ch.push('<span class="chip">конференция '+cfWhen(c.d)+'</span>');
   if(c.w)ch.push('<span class="chip">'+esc(c.w)+'</span>');
   if(gr==='sent')ch.push('<span class="chip" style="color:var(--good)">заявка подана</span>');
-  return '<div class="cfc fade"><div style="font-weight:700;font-size:16px">'+esc(c.t||'Без названия')+'</div>'+
-    (c.s?'<div style="font-size:13px;color:var(--accent);font-weight:600">'+esc(c.s)+'</div>':'')+
+  const op=CF.x===c.id;
+  return '<div class="card flat sl-card fade"><button type="button" class="sl-hd" data-cf="exp" data-id="'+c.id+'" aria-expanded="'+op+'"><span class="sl-hm"><b class="sl-subj">'+esc(c.t||'Без названия')+'</b>'+
+    (c.s?'<span class="sl-ttl">'+esc(c.s)+'</span>':'')+
+    (ch.length?'<span class="sl-meta">'+ch.join('')+'</span>':'')+'</span><span class="sl-chev" aria-hidden="true">›</span></button>'+
+    (op?'<div class="sl-body">'+
     (c.topic?'<div class="cft">Моя тема: <b>'+esc(c.topic)+'</b></div>':'')+
-    (ch.length?'<div class="cfm">'+ch.join('')+'</div>':'')+
     (c.p?'<details><summary>Текст поста</summary><div class="cfp">'+esc(c.p)+'</div></details>':'')+
-    '<div class="cfb">'+
-    '<button class="btn sm" data-cf="sent" data-id="'+c.id+'">'+(c.st==='sent'?'Вернуть в актуальные':'Подала заявку')+'</button>'+
-    '<button class="btn sm ghost" data-cf="ideas" data-id="'+c.id+'" aria-expanded="'+(CF.open===c.id)+'">💡 Идеи тем</button>'+
-    (lk?'<a class="btn sm ghost" href="'+esc(lk)+'" target="_blank" rel="noopener noreferrer">Открыть пост</a>':'')+
-    '<button class="btn sm ghost" data-cf="edit" data-id="'+c.id+'">Изменить</button>'+
-    '<button class="btn sm ghost" data-cf="del" data-id="'+c.id+'">Удалить</button></div>'+(CF.open===c.id?cfPanel(c):'')+'</div>';
+    '<div class="sl-grid">'+
+    '<button class="btn sm primary" data-cf="sent" data-id="'+c.id+'">'+(c.st==='sent'?'Вернуть в актуальные':'Подала заявку')+'</button>'+
+    '<button class="btn sm" data-cf="ideas" data-id="'+c.id+'" aria-expanded="'+(CF.open===c.id)+'">💡 Идеи тем</button>'+
+    (lk?'<a class="btn sm" href="'+esc(lk)+'" target="_blank" rel="noopener noreferrer">Открыть пост</a>':'')+
+    '<button class="btn sm" data-cf="edit" data-id="'+c.id+'">Изменить</button>'+
+    '<button class="btn sm ghost" data-cf="del" data-id="'+c.id+'">Удалить</button></div>'+
+    (CF.open===c.id?cfPanel(c):'')+'</div>':'')+'</div>';
 }
 document.addEventListener('toggle',e=>{if(e.target&&e.target.id==='cf-hd'){CF.ho=e.target.open;const sm=e.target.querySelector('summary'),h=(CF.hint||'').trim();if(sm)sm.textContent='О чём хочешь писать'+(h?': '+(h.length>40?h.slice(0,40)+'…':h):' (по желанию)')}},true);
 function cfSync(){['t','p','l','dl','d','w','s'].forEach(k=>{const f=$('#cf-'+k);if(f)CF.dr[k]=f.value})}
@@ -1368,7 +1385,7 @@ function vConf(){
   const ed=CF.edit&&S.conf.find(c=>c.id===CF.edit),v=CF.dr||{};
   const tabs=[['act','Актуальные'],['sent','Подала'],['old','Прошли']];
   const empty={act:'Пока пусто. Сохрани первый пост выше, и он появится здесь.',sent:'Здесь будут конференции, на которые ты уже подала заявку.',old:'Сюда попадают конференции, у которых срок уже прошёл.'}[CF.tab];
-  return '<div class="head"><div><div class="eyebrow">Конференции</div><h1>Не пропустить конференцию</h1><p>Сохраняй посты с конференциями: срок подачи, дата и ссылка всегда под рукой. За три дня до срока напомню на главной.</p></div></div>'+
+  return '<div class="head"><div><div class="eyebrow">Конференции</div><h1>Не пропустить конференцию</h1><p>Срок подачи, дата и ссылка под рукой. За три дня до срока напомню.</p></div></div>'+
   '<div class="stack"><section class="card"><div class="row"><h3 class="grow" style="font-size:16px">'+(ed?'Правка поста':'Новый пост')+'</h3></div>'+
   '<div class="stack" style="gap:10px;margin-top:10px">'+
   '<label>Название конференции<input type="text" id="cf-t" value="'+esc(v.t||'')+'" placeholder="Например, Правовая наука 2027"></label>'+
@@ -1381,8 +1398,8 @@ function vConf(){
   '<label>Формат или место<input type="text" id="cf-w" value="'+esc(v.w||'')+'" placeholder="Онлайн, очно, город"></label>'+
   '<div class="row" style="justify-content:flex-end">'+(ed?'<button class="btn" data-cf="cancel">Отмена</button>':'')+'<button class="btn primary" data-cf="save">'+(ed?'Сохранить изменения':'Сохранить пост')+'</button></div>'+
   '</div></section>'+
-  '<div class="row" style="gap:8px">'+tabs.map(([k,n])=>'<button class="qc" data-cf="tab" data-v="'+k+'" aria-pressed="'+(CF.tab===k)+'" style="'+(CF.tab===k?'background:var(--soft);color:var(--accent)':'')+'">'+n+' · '+g[k].length+'</button>').join('')+'</div>'+
-  '<div class="cfl">'+(g[CF.tab].map(cfCard).join('')||'<div class="card empty" style="grid-column:1/-1">'+empty+'</div>')+'</div></div>';
+  '<div class="sl-tabs" style="grid-template-columns:repeat(3,1fr);position:static">'+tabs.map(([k,n])=>'<button data-cf="tab" data-v="'+k+'" role="tab" aria-selected="'+(CF.tab===k)+'">'+n+' · '+g[k].length+'</button>').join('')+'</div>'+
+  '<div class="stack" style="gap:10px">'+(g[CF.tab].map(cfCard).join('')||'<div class="card empty" style="grid-column:1/-1">'+empty+'</div>')+'</div></div>';
 }
 document.addEventListener('input',e=>{const i=e.target.id;if(i==='cf-hint'){CF.hint=e.target.value;return}if(i&&i.indexOf('cf-')===0&&i!=='cf-key'&&i!=='cf-pkey'&&CF.dr)CF.dr[i.slice(3)]=e.target.value});
 document.addEventListener('click',e=>{
@@ -1390,6 +1407,7 @@ document.addEventListener('click',e=>{
   const a=el.dataset.cf,id=el.dataset.id;if(!S.conf)S.conf=[];
   const c=id&&S.conf.find(x=>x.id===id);
   if(a==='tab'){cfSync();CF.tab=el.dataset.v;render()}
+  else if(a==='exp'){cfSync();CF.x=CF.x===id?null:id;render()}
   else if(a==='ai')cfAI(false);
   else if(a==='ideas'&&c){cfSync();CF.open=CF.open===id?null:id;CF.ie='';CF.key2=false;render()}
   else if(a==='gen'&&c){const h=$('#cf-hint');if(h)CF.hint=h.value;cfIdeas(id)}
@@ -1427,7 +1445,7 @@ function taskRow(t,opts={}){
       <span class="meta">${catChip(t.cat)}<span class="chip">${durLabel(t.dur)}</span>${t.rep?`<span class="chip">↻ ${t.rep.i}/${t.rep.n}</span>`:''}${(t.subs&&t.subs.length)?`<span class="chip">шаги ${t.subs.filter(x=>x.d).length}/${t.subs.length}</span>`:''}${dueChip(t)}${t.prio===3?'<span class="chip" style="color:var(--accent)">важно</span>':''}${ov?'<span class="chip warnchip">пересекается</span>':''}${t.example?'<span class="chip muted">пример</span>':''}</span></span>
     </button>
     ${(t.subs&&t.subs.length)?`<div class="subs">${t.subs.map((x,i)=>`<button type="button" class="subrow ${x.d?'sdone':''}" data-act="subtoggle" data-id="${t.id}" data-i="${i}" aria-pressed="${!!x.d}"><span class="subbox">${x.d?'✓':''}</span><span class="subtx">${esc(x.t)} <span class="muted">· ${durLabel(x.m)}</span></span></button>`).join('')}</div>`:''}
-    <div class="tact">${!t.done&&!t.time&&!t.example?`<button class="btn sm ghost" data-act="when" data-id="${t.id}">Когда?</button>`:''}${!t.done&&!t.example?`<button class="btn sm ghost" data-act="apstart" data-id="${t.id}">5 мин: доделать</button>`:''}<button class="btn sm ghost" data-act="focusTask" data-id="${t.id}" aria-label="Запустить фокус">Фокус</button><button class="xdel" data-act="del" data-id="${t.id}" aria-label="Удалить дело">×</button></div>
+    <div class="tact">${!t.done&&!t.time&&!t.example?`<button class="btn sm ghost" data-act="when" data-id="${t.id}">Когда?</button>`:''}<details class="tmore"><summary aria-label="Ещё действия">⋯</summary><div class="row">${!t.done&&!t.example?`<button class="btn sm ghost" data-act="apstart" data-id="${t.id}">5 мин: доделать</button>`:''}<button class="btn sm ghost" data-act="focusTask" data-id="${t.id}">Фокус</button></div></details><button class="xdel" data-act="del" data-id="${t.id}" aria-label="Удалить дело">×</button></div>
   </div>`;
 }
 function vDay(){
@@ -1463,29 +1481,29 @@ function vDay(){
       <div class="row" style="margin-top:10px;justify-content:space-between"><button class="btn ghost" data-act="bulk">Назад к одному делу</button><button class="btn primary" data-act="bulkadd">Добавить все</button></div>`
       :`<input type="text" id="qa" placeholder="Что нужно сделать? Можно просто тапать кнопки ниже" autocomplete="off" aria-label="Новое дело">
       <div class="preview" id="pv"></div><div id="rec"></div>${vBox()}
-      <div class="qg"><span class="lbl">Когда</span>${TK([['Сегодня','сегодня'],['Завтра','завтра'],['Послезавтра','послезавтра'],['Выходные','на выходные'],['Через неделю','через неделю'],['Потом','потом']])}<input type="date" id="qa-date" class="qd" min="${todayS()}" aria-label="Выбрать дату"></div>
-      <div class="qg"><span class="lbl">Срок до</span>${TK([['Завтра','до завтра'],['Пятницы','до пт'],['Конца недели','до конца недели'],['Конца месяца','до конца месяца']])}<input type="date" id="qa-due" class="qd" min="${todayS()}" aria-label="Выбрать срок сдачи"></div>
-      <div class="qg"><span class="lbl">Во сколько</span>${[['Утром','10:00'],['Днём','14:00'],['Вечером','18:00']].map(([l,t])=>`<button class="qc" data-act="tok" data-t="${t}">${l}</button>`).join('')}<input type="time" id="qa-time" class="qd" aria-label="Точное время"></div>
+      <div class="qg"><span class="lbl">Когда</span>${TK([['Сегодня','сегодня'],['Завтра','завтра'],['Выходные','на выходные'],['Потом','потом']])}<input type="date" id="qa-date" class="qd" min="${todayS()}" aria-label="Выбрать дату"></div>
+      <div class="row" style="margin-top:12px;flex-wrap:nowrap"><button class="btn primary grow" data-act="add">Добавить</button><button class="btn ${listening?'primary':''}" data-act="voice" aria-label="Голосом">${IC.mic}</button></div>
+      <button class="btn sm ghost" data-act="qmore" style="margin-top:10px">${qOpen?'Скрыть настройки':'Время, повтор, тег…'}</button>
+      ${qOpen?`<div class="qg"><span class="lbl">Во сколько</span>${[['Утром','10:00'],['Днём','14:00'],['Вечером','18:00']].map(([l,t])=>`<button class="qc" data-act="tok" data-t="${t}">${l}</button>`).join('')}<input type="time" id="qa-time" class="qd" aria-label="Точное время"></div>
       <div class="qg"><span class="lbl">Сколько</span>${['15м','30м','1ч','2ч'].map(t=>`<button class="qc" data-act="tok" data-t="${t}">${t.replace('м',' мин').replace('ч',' ч')}</button>`).join('')}<button class="qc" data-act="tok" data-t="!">Важно</button></div>
+      <div class="qg"><span class="lbl">Срок до</span>${TK([['Завтра','до завтра'],['Пятницы','до пт'],['Конца недели','до конца недели'],['Конца месяца','до конца месяца']])}<input type="date" id="qa-due" class="qd" min="${todayS()}" aria-label="Выбрать срок сдачи"></div>
       <div class="qg"><span class="lbl">Повтор</span>${[['Один раз',''],['Каждый день','day'],['Через день','alt'],['По будням','wd'],['Раз в неделю','week']].map(([l,v])=>`<button class="qc" data-act="qrep" data-s="${v}" aria-pressed="${QR.s===v}">${l}</button>`).join('')}<input type="number" id="qa-n" class="qd" min="2" max="30" value="5" style="width:64px" aria-label="Сколько раз всего"><span class="muted" style="font-size:12px">раз всего</span></div>
       <div class="qg"><span class="lbl">Тег</span><div class="cats" id="cats">${Object.keys(CATS).map(k=>`<button data-act="cat" data-k="${k}" aria-pressed="${curCat===k}" style="color:${CATS[k].c}">${esc(CATS[k].n)}</button>`).join('')}<button data-act="tagmodal" aria-pressed="false" style="color:var(--accent)">+ Новый тег</button></div></div>
-      <div class="row" style="margin-top:10px"><button class="btn sm ghost" data-act="qmore">${qOpen?'Меньше вариантов':'Частые дела и отдых'}</button></div>
-      ${qOpen?`<div class="qg"><span class="lbl">Частые</span>${S.tpl.map(x=>`<span class="qc tpl"><button data-act="tpl" data-id="${x.id}">${esc(x.text.replace(/\s+\d+(м|ч)(\s|$)/,' ').replace(/#\S+/,'').trim())}</button><button class="x" data-act="tpldel" data-id="${x.id}" aria-label="Убрать из частых">×</button></span>`).join('')||'<span class="muted" style="font-size:13px">Пока нет. Добавь через «В частые».</span>'}</div>
+      <div class="qg"><span class="lbl">Частые</span>${S.tpl.map(x=>`<span class="qc tpl"><button data-act="tpl" data-id="${x.id}">${esc(x.text.replace(/\s+\d+(м|ч)(\s|$)/,' ').replace(/#\S+/,'').trim())}</button><button class="x" data-act="tpldel" data-id="${x.id}" aria-label="Убрать из частых">×</button></span>`).join('')||'<span class="muted" style="font-size:13px">Пока нет. Добавь через «В частые».</span>'}</div>
       <div class="qg"><span class="lbl">Отдохнуть</span>${RESTS.map((r,i)=>`<button class="qc" data-act="rest" data-i="${i}" style="color:var(--c-rest)">${r[0]}</button>`).join('')}</div>
-      `:''}
-      <div class="row" style="margin-top:12px"><button class="btn sm ghost" data-act="bulk">Вставить списком</button><button class="btn sm ${listening?'primary':''}" data-act="voice">${IC.mic} ${listening?'Стоп':'Голосом'}</button><button class="btn sm ghost" data-act="vparse">Разобрать</button><button class="btn sm ghost" data-act="tplsave">В частые</button><button class="btn sm ghost" data-act="recnew">Когда лучше?</button><span class="grow"></span><button class="btn primary" data-act="add">Добавить</button></div>
-      <div class="hint muted">Лень писать? Нажми кнопки: они сами подставят дату, время и длительность. Срок сдачи: «до пт», «до 25.11» или строка «Срок до». Тег я определяю по словам в деле («урок», «колледж», «уборка»), а ещё его можно выбрать вручную или написать #тег.</div>`}
+      <div class="row" style="margin-top:12px"><button class="btn sm ghost" data-act="bulk">Вставить списком</button><button class="btn sm ghost" data-act="vparse">Разобрать</button><button class="btn sm ghost" data-act="tplsave">В частые</button><button class="btn sm ghost" data-act="recnew">Когда лучше?</button></div>
+      `:''}`}
     </section>
     ${np&&np.t?`<section class="now fade"><div class="grow"><div class="eyebrow">${np.label}</div><h2>${esc(np.t.title)}</h2><div class="muted">${durLabel(np.t.dur)}</div></div>
       <button class="btn primary" data-act="five" data-id="${np.t.id}">Только 5 минут</button><button class="btn" data-act="toggle" data-id="${np.t.id}">Готово</button>${np.alt?'<button class="btn ghost" data-act="other">Другое</button>':''}</section>`
       : (isT&&list.length&&!open.length?'<section class="now fade"><div><h2>Всё сделано на сегодня</h2><div class="muted">Можно выдохнуть. Ты молодец.</div></div></section>':'')}
     <section class="card">
       <div class="row"><h3 class="grow" style="font-size:18px">${(soft||heavy)?'Главное на сегодня':'План дня'}</h3>
-        <button class="btn sm" data-act="aislot" ${AIX.busy?'disabled':''}>${AIX.busy==='slot'?'Думаю…':'ИИ: время'}</button><button class="btn sm primary" data-act="plan">Разложить день</button></div>
+        <button class="btn sm primary" data-act="plan">Разложить день</button></div>
       ${(()=>{const pr=[...new Set(list.map(t=>t.cat))];if(flt!=='all'&&!pr.includes(flt)&&CATS[flt])pr.push(flt);
         return (pr.length>1||flt!=='all')?`<div class="cats" style="margin-top:12px"><button data-act="flt" data-k="all" aria-pressed="${flt==='all'}">Все</button>${pr.filter(k=>CATS[k]).map(k=>`<button data-act="flt" data-k="${k}" aria-pressed="${flt===k}" style="color:${CATS[k].c}">${esc(CATS[k].n)}</button>`).join('')}<button data-act="tagmodal" aria-pressed="false" style="color:var(--accent)">+ Тег</button></div>`:''})()}
-      ${od.length&&isT?`<div class="banner"><span>Со вчера осталось дел: ${od.length}. Это нормально, ничего страшного.</span><button class="btn sm primary" data-act="softmove">Перенести мягко</button><button class="btn sm" data-act="carestart">Перенести с заботой</button><button class="btn sm" data-act="rollover">На сегодня</button><button class="btn sm ghost" data-act="release">В копилку</button></div>`:''}
-      ${isT&&!od.length&&open.length?`<div class="banner"><span>Устала или не успеваешь? Разложу дела на ближайшие дни без авралов.</span><button class="btn sm primary" data-act="softmove">Перенести мягко</button></div>`:''}
+      ${od.length&&isT?`<div class="banner"><span>Со вчера осталось дел: ${od.length}. Это нормально, ничего страшного.</span><button class="btn sm primary" data-act="softmove">Перенести мягко</button><button class="btn sm" data-act="rollover">На сегодня</button><button class="btn sm ghost" data-act="release">В копилку</button></div>`:''}
+      ${isT&&!od.length&&open.length>=4?`<div class="banner"><span>Устала или не успеваешь? Разложу дела на ближайшие дни без авралов.</span><button class="btn sm primary" data-act="softmove">Перенести мягко</button></div>`:''}
       ${isT?dueBanner()+confBanner():''}
       ${lowBat&&!heavy?'<div class="banner"><span>Энергия '+bat(sel)+' из 10: показываю только главное, максимум два дела.</span></div>':''}
       ${ov.size?`<div class="banner"><span>Есть дела, которые идут одно на другом: ${ov.size}. Могу сама раскидать их по свободным окошкам.</span><button class="btn sm primary" data-act="resolveov">Распределить</button></div>`:''}
@@ -1498,7 +1516,7 @@ function vDay(){
       ${open.length&&!hasRest&&planMin>180?'<div class="banner"><span>В плане нет отдыха. Добавим небольшую паузу?</span><button class="btn sm" data-act="rest" data-i="0">Прогулка 30 мин</button></div>':''}
       ${hiddenUn.length?`<button class="btn sm ghost" data-act="more" style="margin-top:14px">${showRest?'Скрыть остальное':'Ещё дел: '+hiddenUn.length+'. Если будут силы'}</button>${showRest?'<div class="tl">'+hiddenUn.map(t=>taskRow(t,{ov})).join('')+'</div>':''}`:''}
       ${doneShown.length?`<div class="eyebrow group-title">Уже получилось · ${doneShown.length}</div><div class="tl">${doneShown.map(t=>taskRow(t,{ov})).join('')}</div>`:''}
-      ${list.length?`<button class="btn" style="width:100%;margin-top:14px" data-act="aiburn" ${AIX.busy?'disabled':''}>${AIX.busy==='burn'?'Думаю…':'🌿 ИИ: как не выгореть'}</button>`:''}
+      ${list.length?`<div class="row" style="margin-top:14px"><button class="btn sm ghost grow" data-act="aislot" ${AIX.busy?'disabled':''}>${AIX.busy==='slot'?'Думаю…':'ИИ: подобрать время'}</button><button class="btn sm ghost grow" data-act="aiburn" ${AIX.busy?'disabled':''}>${AIX.busy==='burn'?'Думаю…':'ИИ: не выгореть'}</button></div>`:''}
     </section>
     ${vAIX()}
     ${vAdvice()}
@@ -1547,17 +1565,19 @@ function vWeek(){
   const days=[...Array(7)].map((_,i)=>addDays(weekStart,i));
   const inbox=S.tasks.filter(t=>!t.date&&!t.done);
   const a=parseD(days[0]),b=parseD(days[6]);
-  return `<div class="head"><div><div class="eyebrow">Неделя</div><h1>${a.getDate()} ${MON[a.getMonth()]} — ${b.getDate()} ${MON[b.getMonth()]}</h1><p>Полоска показывает загрузку дня вместе с парами. Розовая значит день плотный, лучше разгрузить.</p></div>
+  return `<div class="head"><div><div class="eyebrow">Неделя</div><h1>${a.getDate()} ${MON[a.getMonth()]} — ${b.getDate()} ${MON[b.getMonth()]}</h1><p>Полоска — загрузка дня с парами. Розовая: день плотный.</p></div>
     <div class="dayswitch"><button data-act="wk" data-n="-1" aria-label="Прошлая неделя">‹</button><button class="today" data-act="wk" data-n="0">Эта неделя</button><button data-act="wk" data-n="1" aria-label="Следующая неделя">›</button></div></div>
   <div class="week">${days.map(d=>{
     const l=dayTasks(d),open=l.filter(t=>!t.done),pi=pairInfo(d),pm=pi?pi.m:0,mins=open.reduce((s,t)=>s+t.dur,0)+pm,pct=Math.min(100,mins/480*100);
     const col=mins>480?'var(--bad)':mins>360?'var(--warn)':'var(--good)';
     const show=l.sort((x,y)=>(x.time||'99')<(y.time||'99')?-1:1);
+    const hasDue=S.tasks.some(t=>t.due===d&&!t.done);
+    if(!show.length&&!pi&&!hasDue)return `<article class="day empty-d ${d===todayS()?'is-today':''}"><button data-act="openday" data-d="${d}" style="font-weight:700">${WD[parseD(d).getDay()]}, ${parseD(d).getDate()}</button><span class="muted" style="font-size:13px">свободно</span></article>`;
     return `<article class="day ${d===todayS()?'is-today':''}"><header><button data-act="openday" data-d="${d}">${WD[parseD(d).getDay()]}, ${parseD(d).getDate()}</button><span class="muted" style="font-size:12px">${mins?durLabel(mins):'свободно'}</span></header>
       <div class="bar"><i style="width:${pct}%;background:${col}"></i></div>
       ${pi?`<button class="mini" data-act="nav" data-v="sch" style="text-align:left;background:var(--soft)"><b style="font-variant-numeric:tabular-nums;color:var(--muted)">${fromM(pi.a)}–${fromM(pi.b)}</b><span>Пары${pi.n?' ('+pi.n+')':''} · ${durLabel(pm)}</span></button>`:''}
-      ${show.slice(0,WKX[d]?99:5).map(t=>`<button class="mini ${t.done?'done':''}" data-act="edit" data-id="${t.id}" style="text-align:left"><b style="font-variant-numeric:tabular-nums;color:var(--muted)">${t.time?t.time+'–'+endT(t):'··'}</b><span>${esc(t.title)}</span></button>`).join('')}
-      ${show.length>5?`<button class="mini" data-act="wkmore" data-d="${d}" style="justify-content:center;color:var(--accent);font-weight:600">${WKX[d]?'Свернуть':'Ещё '+(show.length-5)+' ▾'}</button>`:''}
+      ${show.slice(0,WKX[d]?99:4).map(t=>`<button class="mini ${t.done?'done':''}" data-act="edit" data-id="${t.id}" style="text-align:left"><b style="font-variant-numeric:tabular-nums;color:var(--muted)">${t.time?t.time+'–'+endT(t):'··'}</b><span>${esc(t.title)}</span></button>`).join('')}
+      ${show.length>4?`<button class="mini" data-act="wkmore" data-d="${d}" style="justify-content:center;color:var(--accent);font-weight:600">${WKX[d]?'Свернуть':'Ещё '+(show.length-4)+' ▾'}</button>`:''}
       ${S.tasks.filter(t=>t.due===d&&!t.done).map(t=>`<button class="mini" data-act="edit" data-id="${t.id}" style="text-align:left;background:#FFF0D6;color:#8A5A00"><b>⚑</b><span>срок: ${esc(t.title)}</span></button>`).join('')}
       ${!show.length&&!pi&&!S.tasks.some(t=>t.due===d&&!t.done)?'<span class="muted" style="font-size:13px">Пока ничего</span>':''}</article>`}).join('')}</div>
   ${(()=>{const wk=days.flatMap(dayTasks),tot=wk.reduce((x,t)=>x+t.dur,0),rs=wk.filter(t=>t.cat==='rest').reduce((x,t)=>x+t.dur,0),pc=tot?Math.round(rs/tot*100):0;
@@ -1896,7 +1916,7 @@ function foldify(){
   document.querySelectorAll('#main section.card').forEach(c=>{
     if(c.id==='petcard'||c.dataset.fold||c.closest('.fold-b'))return;
     const isQa=c.classList.contains('qa');let hd=null;
-    if(isQa){hd=document.createElement('div');hd.className='eyebrow';hd.textContent='Составление плана · добавить дело';c.insertBefore(hd,c.firstChild)}
+    if(isQa){hd=document.createElement('div');hd.className='eyebrow';hd.textContent='Добавить дело';c.insertBefore(hd,c.firstChild)}
     else{const f=c.firstElementChild;if(!f)return;
       if(f.matches('.eyebrow,h2,h3')||(f.matches('.row')&&f.querySelector('h3')))hd=f;else return}
     const tt=(hd.querySelector('h3')||hd).textContent.replace(/\s+/g,' ').trim().slice(0,40);
@@ -1908,7 +1928,7 @@ function foldify(){
     btn.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
     hd.classList.add('fold-h');hd.insertBefore(btn,hd.firstChild);
     c.dataset.fold=key;
-    let col=(S.fold||{})[key];if(col===undefined)col=isQa;
+    let col=(S.fold||{})[key];if(col===undefined)col=isQa||(window.innerWidth<=860&&/^(sch|day|week|conf):(Новый пост|Для тебя|Береги себя|Маленькая победа|Вечер: подведём|Привычки|Копилка|Баланс недели|Напоминания|Копия данных|Подъём и дорога|Редактировать пары|Пары и дорога)/.test(key));
     if(isQa&&(listening||VD||bulk))col=false;
     foldSet(c,col);
   });
@@ -2265,7 +2285,7 @@ document.addEventListener('click',e=>{
       const n=VD.length;VD=null;ds.forEach(d=>autoPlan(d));save();render();toast('Добавила и разложила по свободному времени: '+n);break}
     case 'schcopy':{const a=S.sch.days[1];if(a){const l=(S.sch.les||{})[1];S.sch.les=S.sch.les||{};[2,3,4,5].forEach(d=>{S.sch.days[d]=a.slice();if(l&&l.length)S.sch.les[d]=l.map(x=>({a:x.a,b:x.b,t:x.t,r:x.r}));else delete S.sch.les[d]});save();render();toast('Будни как в понедельник')}else toast('Сначала заполни понедельник');break}
     case 'schwk':schWeek=+el.dataset.n===0?mondayOf(todayS()):addDays(schWeek,7*+el.dataset.n);render();break;
-    case 'schgo':{const n=document.getElementById('ttd-'+el.dataset.d);if(n)n.scrollIntoView({behavior:'smooth',block:'center'});break}
+    case 'schgo':{const n=document.getElementById('ttd-'+el.dataset.d);if(n){const fc=n.closest('section.card');if(fc&&fc.classList.contains('folded')){S.fold=S.fold||{};S.fold[fc.dataset.fold]=false;save();foldSet(fc,false)}}if(n)n.scrollIntoView({behavior:'smooth',block:'center'});break}
     case 'lsadd':{const d=el.dataset.d,L=(S.sch.les=S.sch.les||{}),l=L[d]||(L[d]=[]);let a='09:00',b='10:30';
       if(l.length){const last=l[l.length-1];if(last.b){const st=Math.min(toM(last.b)+10,1320);a=fromM(st);b=fromM(Math.min(st+90,1439))}}
       else if(S.sch.days[d]&&S.sch.days[d][0]&&S.sch.days[d][1]){a=S.sch.days[d][0];b=S.sch.days[d][1]}
