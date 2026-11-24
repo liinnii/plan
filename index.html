@@ -823,7 +823,7 @@ function renderNav(){
 }
 
 /* ---------- конференции: посты, чтобы не забыть ---------- */
-const CF={tab:'act',edit:null,dr:{},busy:false,msg:'',key:false,open:null,ib:null,ie:'',key2:false,hint:''};
+const CF={tab:'act',edit:null,dr:{},busy:false,msg:'',key:false,open:null,ib:null,ie:'',key2:false,hint:'',ho:false};
 const cfPassed=c=>c.dl?dueIn(c.dl)<0:(c.d?dueIn(c.d)<0:false);
 const cfGroup=c=>c.st==='sent'?'sent':(cfPassed(c)?'old':'act');
 const cfWhen=s=>{const d=parseD(s),y=new Date().getFullYear();return d.getDate()+' '+MON[d.getMonth()]+(d.getFullYear()!==y?' '+d.getFullYear():'')};
@@ -852,6 +852,7 @@ function cfCard(c){
     '<button class="btn sm ghost" data-cf="edit" data-id="'+c.id+'">Изменить</button>'+
     '<button class="btn sm ghost" data-cf="del" data-id="'+c.id+'">Удалить</button></div>'+(CF.open===c.id?cfPanel(c):'')+'</div>';
 }
+document.addEventListener('toggle',e=>{if(e.target&&e.target.id==='cf-hd'){CF.ho=e.target.open;const sm=e.target.querySelector('summary'),h=(CF.hint||'').trim();if(sm)sm.textContent='О чём хочешь писать'+(h?': '+(h.length>40?h.slice(0,40)+'…':h):' (по желанию)')}},true);
 function cfSync(){['t','p','l','dl','d','w','s'].forEach(k=>{const f=$('#cf-'+k);if(f)CF.dr[k]=f.value})}
 async function cfAI(auto){
   if(CF.busy)return;
@@ -878,7 +879,7 @@ async function cfAI(auto){
 document.addEventListener('paste',e=>{if(e.target&&e.target.id==='cf-p')setTimeout(()=>cfAI(true),80)});
 function cfPanel(c){
   const id=c.id,busy=CF.ib===id,L=c.ideas||[];
-  return '<div class="cfi"><label>О чём хочешь писать (по желанию)<input type="text" id="cf-hint" value="'+esc(CF.hint||'')+'" placeholder="Например: цифровизация права, Кант"></label>'+
+  return '<div class="cfi"><details id="cf-hd"'+(CF.ho?' open':'')+'><summary>О чём хочешь писать'+(CF.hint?': '+esc(CF.hint.length>40?CF.hint.slice(0,40)+'…':CF.hint):' (по желанию)')+'</summary><label style="margin-top:8px"><input type="text" id="cf-hint" value="'+esc(CF.hint||'')+'" placeholder="Например: цифровизация права, Кант" aria-label="О чём хочешь писать"></label></details>'+
     '<div class="row"><button type="button" class="btn sm primary" data-cf="gen" data-id="'+id+'"'+(CF.ib?' disabled':'')+'>'+(busy?'Придумываю…':L.length?'Ещё идеи':'Придумать названия')+'</button></div>'+
     (CF.ie?'<div class="muted" style="font-size:13px" role="status">'+esc(CF.ie)+'</div>':'')+
     (CF.key2?'<div class="stack" style="gap:8px"><div class="muted" style="font-size:13px">Нужен бесплатный ключ Google Gemini: <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>. Ключ хранится только в этом браузере.</div><input type="password" id="cf-pkey" autocomplete="off" placeholder="AIza…"><button type="button" class="btn sm primary" data-cf="pkey" data-id="'+id+'">Сохранить ключ и продолжить</button></div>':'')+
