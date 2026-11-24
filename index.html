@@ -2673,76 +2673,129 @@ document.addEventListener('keydown',e=>{if(e.target.id==='ch-in'&&e.key==='Enter
 
 /* ---------- репетитор: свои HTML-материалы ---------- */
 if(!S.tut)S.tut={subj:[{id:'t_chem',n:'Химия'},{id:'t_rus',n:'Русский язык'}],mat:[]};
-var TU={f:'all',q:[]};
+var TU={f:'all',q:[],tab:'list',det:null};
 const tuS=id=>S.tut.subj.find(x=>x.id===id);
 const tuOpts=sel=>'<option value="">Без предмета</option>'+S.tut.subj.map(x=>`<option value="${x.id}" ${x.id===sel?'selected':''}>${esc(x.n)}</option>`).join('');
-const tuKb=h=>{const k=Math.round(h.length/1024);return k>=1024?(k/1024).toFixed(1)+' МБ':k+' КБ'};
+const tuKb=h=>{const n=typeof h==='number'?h:h.length,k=Math.max(1,Math.round(n/1024));return k>=1024?(k/1024).toFixed(1)+' МБ':k+' КБ'};
+const tuSz=m=>m.sz||(m.html||'').length;
+const tuTy=(n,t)=>{n=(n||'').toLowerCase();return /\.pdf$/.test(n)||t==='application/pdf'?'pdf':/\.docx$/.test(n)?'docx':/\.doc$/.test(n)?'doc':/\.html?$/.test(n)||t==='text/html'?'html':''};
+const TU_LBL={html:'HTML',pdf:'PDF',docx:'Word',doc:'Word (.doc)'};
+const TU_MAX=15*1048576;
+const tuGrp=m=>(m.s&&tuS(m.s))?m.s:'';
+const tuDate=m=>new Date(m.at).toLocaleDateString('ru-RU',{day:'numeric',month:'long'});
+const TU_ACC='.html,.htm,.pdf,.doc,.docx,text/html,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+function tuCard(m){const ty=m.ty||'html';
+  return `<button type="button" class="sl-hd hw-card card flat" data-tu="det" data-id="${m.id}"><span class="sl-hm"><b class="sl-subj">${esc(m.t)}</b>${m.n?`<span class="sl-ttl">${esc(m.n)}</span>`:''}<span class="sl-meta"><span class="chip" style="color:var(--accent)">${TU_LBL[ty]}</span><span class="chip">${tuKb(tuSz(m))}</span><span class="chip">${tuDate(m)}</span></span></span><span class="sl-chev" aria-hidden="true">›</span></button>`}
+function tuSubjBox(){const T=S.tut,cnt=id=>T.mat.filter(m=>tuGrp(m)===id).length;
+  return `<details class="card flat sl-dl" data-keep="tusub"${kopen('tusub')}><summary>Предметы · ${T.subj.length}</summary><div class="stack" style="gap:10px;padding:0 16px 16px">
+    <div class="row" style="gap:6px">${T.subj.map(x=>`<span class="qc tpl"><span>${esc(x.n)} · ${cnt(x.id)}</span><button type="button" class="x" data-tu="subdel" data-id="${x.id}" aria-label="Удалить предмет">×</button></span>`).join('')||'<span class="muted" style="font-size:13px">Предметов пока нет. Добавь первый.</span>'}</div>
+    <div class="row"><input type="text" id="tu-sn" class="grow" style="flex:1 1 160px;font-size:16px" placeholder="Новый предмет, например: Биология" aria-label="Новый предмет"><button type="button" class="btn sm primary" data-tu="subadd">Добавить</button></div></div></details>`}
+function tuListHtml(){
+  const T=S.tut,L=T.mat.filter(m=>TU.f==='all'||tuGrp(m)===TU.f),n0=T.mat.filter(m=>!tuGrp(m)).length,cnt=id=>T.mat.filter(m=>tuGrp(m)===id).length;
+  if(TU.f!=='all'&&!(TU.f===''?n0:tuS(TU.f)))TU.f='all';
+  if(!T.mat.length)return '<section class="card"><div class="empty">Материалов пока нет.<div style="margin-top:12px"><button type="button" class="btn primary" data-tu="tab" data-v="new">＋ Добавить первый</button></div></div></section>'+tuSubjBox();
+  const chips='<div class="sl-chips"><button type="button" data-tu="filt" data-v="all" aria-pressed="'+(TU.f==='all')+'">Все · '+T.mat.length+'</button>'+T.subj.map(x=>'<button type="button" data-tu="filt" data-v="'+x.id+'" aria-pressed="'+(TU.f===x.id)+'">'+esc(x.n)+' · '+cnt(x.id)+'</button>').join('')+(n0?'<button type="button" data-tu="filt" data-v="" aria-pressed="'+(TU.f==='')+'">Без предмета · '+n0+'</button>':'')+'</div>';
+  const L2=T.mat.filter(m=>TU.f==='all'||tuGrp(m)===TU.f);
+  const groups=T.subj.map(x=>({id:x.id,n:x.n})).concat([{id:'',n:'Без предмета'}]).map(g=>({g,items:L2.filter(m=>tuGrp(m)===g.id)})).filter(x=>x.items.length);
+  return chips+groups.map(x=>'<div class="stack" style="gap:8px"><div class="hw-gh"><span class="hw-gt">'+esc(x.g.n)+'</span><span class="muted" style="font-size:13px">'+x.items.length+'</span></div>'+x.items.map(tuCard).join('')+'</div>').join('')+tuSubjBox()}
+function tuNewForm(){
+  const q=TU.q;
+  return `<section class="card sl-form"><div class="stack" style="gap:18px">
+    <div class="sl-sec"><div class="sl-sh">1. Файлы</div>
+      <div class="sl-grid sl-grid2"><label class="btn primary" style="cursor:pointer">📎 Выбрать файлы<input type="file" id="tu-file" multiple accept="${TU_ACC}" hidden></label></div>
+      <div class="muted" style="font-size:13px">HTML, PDF или Word (.docx, .doc). Можно сразу несколько.</div>
+      <details data-keep="tupaste"${kopen('tupaste')}><summary class="muted" style="cursor:pointer;font-size:14px;padding:6px 0">Или вставить HTML-код</summary><div class="stack" style="gap:8px"><textarea id="tu-paste" style="min-height:70px" placeholder="Вставь HTML-код сюда" aria-label="HTML-код"></textarea><div><button type="button" class="btn sm" data-tu="paste">Добавить из вставленного</button></div></div></details></div>
+    <div class="sl-sec"><div class="sl-sh">2. Название, предмет, подпись</div>
+      ${q.length?`<div class="stack" style="gap:10px">${q.map((x,i)=>`<div class="tuq"><div class="row" style="justify-content:space-between;flex-wrap:nowrap"><span class="muted" style="font-size:12px;overflow-wrap:anywhere">${esc(x.fn)} · ${TU_LBL[x.ty||'html']} · ${tuKb(x.sz||x.html.length)}</span><button type="button" class="xdel" data-tu="qdel" data-i="${i}" aria-label="Убрать">×</button></div>
+        <input type="text" style="font-size:16px" data-tq="${i}.t" value="${esc(x.t)}" placeholder="Название" aria-label="Название">
+        <select style="font-size:16px" data-tq="${i}.s" aria-label="Предмет">${tuOpts(x.s)}</select>
+        <textarea style="font-size:16px;min-height:64px" data-tq="${i}.n" placeholder="Подпись: тема, класс, для кого" aria-label="Подпись">${esc(x.n)}</textarea></div>`).join('')}</div>`:'<div class="muted" style="font-size:14px">Выбери файл, и здесь появятся поля для названия, предмета и подписи.</div>'}</div>
+    <button type="button" class="btn primary sl-wide" data-tu="pub"${q.length?'':' disabled'}>Опубликовать${q.length>1?' ('+q.length+')':''}</button></div></section>`}
+function tuDetail(m){
+  const sb=tuS(m.s),ty=m.ty||'html';
+  return `<div class="sl-bar"><button type="button" class="sl-back" data-tu="back">‹ Все материалы</button></div>
+  <div class="stack"><div><div class="eyebrow">${sb?esc(sb.n):'Материал'}</div><h1 id="tu-h1" style="font-size:clamp(22px,6vw,30px);line-height:1.15;overflow-wrap:anywhere;margin-top:4px">${esc(m.t)}</h1>
+    <div class="sl-meta" style="margin-top:10px"><span class="chip" style="color:var(--accent)">${TU_LBL[ty]}</span><span class="chip">${tuKb(tuSz(m))}</span><span class="chip">${tuDate(m)}</span></div></div>
+    <div class="sl-grid sl-grid2"><button type="button" class="btn primary" data-tu="open" data-id="${m.id}">Открыть</button><button type="button" class="btn" data-tu="share" data-id="${m.id}">Поделиться</button></div>
+    <section class="card flat sl-card sl-det"><div class="sl-body">
+      <div class="sl-sec"><div class="sl-sh">Название</div><input type="text" style="font-size:16px" data-tue="${m.id}.t" value="${esc(m.t)}" aria-label="Название"></div>
+      <div class="sl-sec"><div class="sl-sh">Предмет</div><select style="font-size:16px" data-tue="${m.id}.s" aria-label="Предмет">${tuOpts(m.s)}</select></div>
+      <div class="sl-sec"><div class="sl-sh">Подпись</div><textarea style="font-size:16px" rows="3" data-tue="${m.id}.n" placeholder="Тема, класс, для кого" aria-label="Подпись">${esc(m.n||'')}</textarea></div>
+      <div class="sl-grid sl-grid2"><button type="button" class="btn sm" data-tu="dl" data-id="${m.id}">Скачать</button><button type="button" class="btn sm ghost" data-tu="del" data-id="${m.id}" style="color:var(--bad)">Удалить</button></div>
+    </div></section>
+    <p class="muted" style="font-size:12px;margin:0">Материалы хранятся только в этом браузере (PDF и Word не входят в копию из раздела «Пары»). Ученикам отправляй кнопками «Поделиться» или «Скачать».</p></div>`}
 function vTutor(){
-  const T=S.tut,L=T.mat.filter(m=>TU.f==='all'||m.s===TU.f),noS=T.mat.some(m=>!m.s||!tuS(m.s));
-  const cnt=id=>T.mat.filter(m=>m.s===id).length;
-  const def=(TU.f!=='all'&&tuS(TU.f))?TU.f:(T.subj[0]?T.subj[0].id:'');
-  return `<div class="head"><div><div class="eyebrow">Репетиторство</div><h1>Мои материалы</h1><p>Загружай свои HTML-страницы, подписывай и раскладывай по предметам. Открывай прямо здесь, хоть на уроке.</p></div></div>
-  <div class="stack">
-  <section class="card"><h3 style="font-size:18px">Предметы</h3>
-    <div class="row" style="gap:6px;margin-top:10px">${T.subj.map(x=>`<span class="qc tpl"><span>${esc(x.n)} · ${cnt(x.id)}</span><button class="x" data-tu="subdel" data-id="${x.id}" aria-label="Удалить предмет">×</button></span>`).join('')||'<span class="muted" style="font-size:13px">Предметов пока нет. Добавь первый.</span>'}</div>
-    <div class="row" style="margin-top:10px"><input type="text" id="tu-sn" class="grow" style="flex:1 1 160px" placeholder="Новый предмет, например: Биология" aria-label="Новый предмет"><button class="btn sm primary" data-tu="subadd">Добавить</button></div></section>
-  <section class="card"><h3 style="font-size:18px">Добавить материал</h3>
-    <p class="muted" style="font-size:13px;margin:6px 0 10px">Выбери один или несколько файлов .html или вставь код. Потом подпиши и нажми «Опубликовать».</p>
-    <div class="row"><label class="btn primary" style="cursor:pointer">Выбрать файлы<input type="file" id="tu-file" multiple accept=".html,.htm,text/html" hidden></label></div>
-    <textarea id="tu-paste" style="margin-top:10px;min-height:70px" placeholder="Или вставь HTML-код сюда" aria-label="HTML-код"></textarea>
-    <div class="row" style="margin-top:8px"><button class="btn sm" data-tu="paste">Добавить из вставленного</button></div>
-    ${TU.q.length?`<div class="stack" style="gap:10px;margin-top:14px">${TU.q.map((x,i)=>`<div class="tuq"><div class="row" style="justify-content:space-between"><span class="muted" style="font-size:12px">${esc(x.fn)} · ${tuKb(x.html)}</span><button class="xdel" data-tu="qdel" data-i="${i}" aria-label="Убрать">×</button></div>
-      <input type="text" data-tq="${i}.t" value="${esc(x.t)}" placeholder="Название" aria-label="Название">
-      <select data-tq="${i}.s" aria-label="Предмет">${tuOpts(x.s)}</select>
-      <textarea data-tq="${i}.n" style="min-height:64px" placeholder="Подпись: тема, класс, для кого" aria-label="Подпись">${esc(x.n)}</textarea></div>`).join('')}</div>
-    <button class="btn primary" style="width:100%;margin-top:12px" data-tu="pub">Опубликовать${TU.q.length>1?' ('+TU.q.length+')':''}</button>`:''}</section>
-  <section class="card"><div class="row"><h3 class="grow" style="font-size:18px">Опубликованное</h3><span class="muted">${L.length}</span></div>
-    ${T.mat.length?`<div class="cats" style="margin-top:12px"><button data-tu="filt" data-v="all" aria-pressed="${TU.f==='all'}">Все</button>${T.subj.map(x=>`<button data-tu="filt" data-v="${x.id}" aria-pressed="${TU.f===x.id}">${esc(x.n)}</button>`).join('')}${noS?`<button data-tu="filt" data-v="" aria-pressed="${TU.f===''}">Без предмета</button>`:''}</div>`:''}
-    <div class="stack" style="gap:12px;margin-top:12px">${L.map(m=>{const sb=tuS(m.s);return `<div class="tum fade"><div><b style="font-size:16px;overflow-wrap:anywhere">${esc(m.t)}</b></div>
-      <div class="meta">${sb?`<span class="chip" style="color:var(--accent)">${esc(sb.n)}</span>`:'<span class="chip muted">без предмета</span>'}<span class="chip">${tuKb(m.html)}</span><span class="chip">${new Date(m.at).toLocaleDateString('ru-RU',{day:'numeric',month:'long'})}</span></div>
-      ${m.n?`<div style="white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px">${esc(m.n)}</div>`:''}
-      <div class="row" style="gap:6px"><button class="btn sm primary" data-tu="open" data-id="${m.id}">Открыть</button><button class="btn sm" data-tu="share" data-id="${m.id}">Поделиться</button><button class="btn sm" data-tu="dl" data-id="${m.id}">Скачать</button><button class="btn sm ghost" data-tu="edit" data-id="${m.id}">Изменить</button><button class="btn sm ghost" data-tu="del" data-id="${m.id}">Удалить</button></div></div>`}).join('')||`<div class="empty">${T.mat.length?'В этом предмете пока ничего.':'Пока пусто. Загрузи первую страницу выше.'}</div>`}</div>
-    <p class="muted" style="font-size:12px;margin:14px 0 0">Материалы хранятся только в этом браузере, ссылки для учеников тут нет. Ученикам отправляй кнопками «Поделиться» или «Скачать». Копию всех данных можно сохранить в разделе «Пары».</p></section>
-  </div>`;
-}
+  const T=S.tut;
+  if(TU.det){const dm=T.mat.find(x=>x.id===TU.det);if(dm)return tuDetail(dm);TU.det=null}
+  const tab=TU.tab==='new'?'new':'list';
+  const tabs='<div class="sl-tabs" role="tablist">'+[['list','Материалы · '+T.mat.length],['new','＋ Добавить']].map(t=>'<button type="button" role="tab" data-tu="tab" data-v="'+t[0]+'" aria-selected="'+(tab===t[0])+'">'+t[1]+'</button>').join('')+'</div>';
+  return '<div class="head"><div><div class="eyebrow">Репетиторство</div><h1>Мои материалы</h1></div></div><div class="stack">'+tabs+(tab==='new'?tuNewForm():tuListHtml())+'</div>'}
 const tuTitle=(h,fn)=>{const m=h.match(/<title[^>]*>([\s\S]*?)<\/title>/i),t=m&&m[1].replace(/\s+/g,' ').trim();return (t||fn.replace(/\.[^.]+$/,'')||'Без названия').slice(0,80)};
 function tuDef(){return (TU.f!=='all'&&tuS(TU.f))?TU.f:(S.tut.subj[0]?S.tut.subj[0].id:'')}
-function tuAdd(fn,html){html=html.trim();if(html.length<10){toast('Файл пустой');return}if(html.length>3e6){toast('Файл больше 3 МБ, он не поместится');return}TU.q.push({fn,html,t:tuTitle(html,fn),s:tuDef(),n:''})}
+function tuAdd(fn,html){html=html.trim();if(html.length<10){toast('Файл пустой');return}if(html.length>3e6){toast('Файл больше 3 МБ, он не поместится');return}TU.q.push({fn,ty:'html',sz:html.length,html,t:tuTitle(html,fn),s:tuDef(),n:''})}
+function tuAddBin(f,ty){if(f.size>TU_MAX){toast('Файл «'+f.name+'» больше 15 МБ');return}if(!f.size){toast('Файл пустой');return}TU.q.push({fn:f.name,ty,sz:f.size,blob:f,t:f.name.replace(/\.[^.]+$/,'').slice(0,80)||'Без названия',s:tuDef(),n:''})}
+async function tuBlob(m){if((m.ty||'html')==='html')return new Blob([m.html],{type:'text/html'});const a=await phGet('tm:'+m.id);return a[0]&&a[0].b||null}
+async function tuFile(m){const ty=m.ty||'html',b=await tuBlob(m);if(!b)return null;
+  const base=(m.fn||m.t).replace(/[\\/:*?"<>|]+/g,'_').replace(/\.(html?|pdf|docx?)$/i,''),ext={html:'html',pdf:'pdf',docx:'docx',doc:'doc'}[ty],mime={html:'text/html',pdf:'application/pdf',docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',doc:'application/msword'}[ty];
+  return new File([b],base+'.'+ext,{type:mime})}
+let tuTok=0;
+async function tuFillBin(m,box){
+  const tok=++tuTok,ok=()=>tok===tuTok&&box.isConnected,ty=m.ty;
+  const fail=msg=>{if(!ok())return;box.innerHTML='<div class="banner" style="margin:0"><span>'+esc(msg)+'</span><button type="button" class="btn sm" data-tu="dl" data-id="'+m.id+'">Скачать файл</button></div>'};
+  const b=await tuBlob(m);if(!b){fail('Файл не найден. Возможно, он не сохранился в памяти браузера.');return}
+  try{
+    if(ty==='pdf'){
+      const B='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';await loadJs(B+'pdf.min.js');const P=window.pdfjsLib;P.GlobalWorkerOptions.workerSrc=B+'pdf.worker.min.js';
+      const d=await P.getDocument({data:new Uint8Array(await b.arrayBuffer())}).promise;if(!ok())return;box.innerHTML='';
+      const w=box.clientWidth-24||340,dpr=Math.min(window.devicePixelRatio||1,2);
+      for(let i=1;i<=Math.min(d.numPages,150);i++){if(!ok())return;
+        const pg=await d.getPage(i),v0=pg.getViewport({scale:1}),v=pg.getViewport({scale:w/v0.width*dpr}),c=document.createElement('canvas');
+        c.width=v.width;c.height=v.height;c.className='sl-pg';box.appendChild(c);await pg.render({canvasContext:c.getContext('2d'),viewport:v}).promise}
+    }else if(ty==='docx'){
+      await loadJs('https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js');
+      const r=await window.mammoth.convertToHtml({arrayBuffer:await b.arrayBuffer()});if(!ok())return;
+      box.innerHTML='<div class="sl-doc">'+r.value.replace(/<script[\s\S]*?<\/script>/gi,'')+'</div>'
+    }else fail('Старый формат .doc в браузере не открыть. Скачай файл и открой в Word.')
+  }catch(x){fail('Не получилось открыть файл здесь. Для просмотра PDF и Word нужен интернет. Можно скачать файл.')}
+}
 function tuView(id){const m=S.tut.mat.find(x=>x.id===id);if(!m)return;
-  const o=document.createElement('div');o.id='tuv';o.className='tuv';o.setAttribute('role','dialog');o.setAttribute('aria-modal','true');
-  o.innerHTML=`<div class="tuv-t"><button class="mrfs-x" data-tu="vclose" aria-label="Закрыть">✕</button><b style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(m.t)}</b></div><iframe sandbox="allow-scripts allow-forms allow-popups allow-modals" title="${esc(m.t)}"></iframe>`;
-  document.body.appendChild(o);document.body.style.overflow='hidden';o.querySelector('iframe').srcdoc=m.html}
-function tuClose(){const o=$('#tuv');if(o)o.remove();document.body.style.overflow=''}
-function tuFile(m){return new File([m.html],((m.fn||m.t).replace(/[\\/:*?"<>|]+/g,'_').replace(/\.html?$/i,''))+'.html',{type:'text/html'})}
+  const ty=m.ty||'html',o=document.createElement('div');o.id='tuv';o.className='tuv';o.setAttribute('role','dialog');o.setAttribute('aria-modal','true');
+  o.innerHTML=`<div class="tuv-t"><button class="mrfs-x" data-tu="vclose" aria-label="Закрыть">✕</button><b style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(m.t)}</b></div>`+(ty==='html'?`<iframe sandbox="allow-scripts allow-forms allow-popups allow-modals" title="${esc(m.t)}"></iframe>`:'<div id="tuv-b" style="overflow:auto;padding:12px;-webkit-overflow-scrolling:touch"><div class="muted" style="padding:20px 0;text-align:center">Открываю…</div></div>');
+  document.body.appendChild(o);document.body.style.overflow='hidden';
+  if(ty==='html')o.querySelector('iframe').srcdoc=m.html;else tuFillBin(m,o.querySelector('#tuv-b'))}
+function tuClose(){tuTok++;const o=$('#tuv');if(o)o.remove();document.body.style.overflow=''}
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('#tuv'))tuClose()});
 document.addEventListener('change',async e=>{
   if(e.target.id==='tu-file'){const fs=[...e.target.files];e.target.value='';let bad=0;
-    for(const f of fs){try{tuAdd(f.name,await f.text())}catch(x){bad++}}
-    render();if(bad)toast('Не удалось прочитать файлов: '+bad);return}
+    for(const f of fs){try{const ty=tuTy(f.name,f.type);if(ty==='html')tuAdd(f.name,await f.text());else if(ty)tuAddBin(f,ty);else{toast('Подходят HTML, PDF и Word (.docx, .doc)');bad++}}catch(x){bad++}}
+    render();if(bad)toast('Не добавлено файлов: '+bad);return}
   const k=e.target.dataset&&e.target.dataset.tq;if(k){const [i,f]=k.split('.'),x=TU.q[+i];if(x)x[f]=e.target.value}});
+document.addEventListener('change',e=>{const k=e.target.dataset&&e.target.dataset.tue;if(!k)return;const [id,f]=k.split('.'),m=S.tut.mat.find(x=>x.id===id);if(!m)return;
+  let v=e.target.value;if(f==='t'){v=v.trim()||m.t;m.t=v;const h=$('#tu-h1');if(h)h.textContent=v;save();return}
+  if(f==='n'){m.n=v.trim();save();toast('Сохранено');return}
+  m.s=v;save();render()});
 document.addEventListener('input',e=>{const k=e.target.dataset&&e.target.dataset.tq;if(k){const [i,f]=k.split('.'),x=TU.q[+i];if(x)x[f]=e.target.value}});
 document.addEventListener('click',async e=>{
   const el=e.target.closest('[data-tu]');if(!el)return;const a=el.dataset.tu,id=el.dataset.id,T=S.tut,m=id&&T.mat.find(x=>x.id===id);
   switch(a){
     case 'filt':TU.f=el.dataset.v;render();break;
+    case 'tab':TU.tab=el.dataset.v==='new'?'new':'list';render();window.scrollTo(0,0);break;
+    case 'det':TU.det=id;render();window.scrollTo(0,0);break;
+    case 'back':TU.det=null;render();window.scrollTo(0,0);break;
     case 'subadd':{const i=$('#tu-sn'),v=i.value.trim();if(!v){i.focus();break}if(T.subj.some(x=>x.n.toLowerCase()===v.toLowerCase())){toast('Такой предмет уже есть');break}T.subj.push({id:'t_'+uid(),n:v.slice(0,30)});save();render();break}
     case 'subdel':{const x=tuS(id);if(!x)break;const c=T.mat.filter(z=>z.s===id).length;if(!confirm('Удалить предмет «'+x.n+'»?'+(c?' Материалы ('+c+') останутся, без предмета.':'')))break;T.subj=T.subj.filter(z=>z.id!==id);T.mat.forEach(z=>{if(z.s===id)z.s=''});if(TU.f===id)TU.f='all';TU.q.forEach(z=>{if(z.s===id)z.s=''});save();render();break}
     case 'paste':{const i=$('#tu-paste'),v=i.value;if(v.trim().length<10){toast('Сначала вставь HTML-код');break}tuAdd('вставленный код.html',v);render();break}
     case 'qdel':TU.q.splice(+el.dataset.i,1);render();break;
-    case 'pub':{if(!TU.q.length)break;const add=TU.q.map(x=>({id:uid(),s:x.s||'',t:(x.t||'').trim()||'Без названия',n:(x.n||'').trim(),html:x.html,fn:x.fn,at:Date.now()}));
+    case 'pub':{if(!TU.q.length)break;const qq=TU.q.slice(),add=qq.map(x=>({id:uid(),s:x.s||'',t:(x.t||'').trim()||'Без названия',n:(x.n||'').trim(),ty:x.ty||'html',sz:x.sz,html:x.ty&&x.ty!=='html'?'':x.html,fn:x.fn,at:Date.now()}));
+      let okb=true;for(let k=0;k<add.length;k++){if(add[k].ty!=='html')okb=(await phPut('tm:'+add[k].id,[{n:add[k].fn,b:qq[k].blob}]))&&okb}
       T.mat.unshift(...add);
-      if(JSON.stringify(S).length>4500000){T.mat.splice(0,add.length);toast('Не хватает места в браузере. Удали старые материалы или загрузи файлы поменьше');break}
-      TU.q=[];save();render();toast('Опубликовано: '+add.length);break}
+      if(JSON.stringify(S).length>4500000){T.mat.splice(0,add.length);add.forEach(x=>{if(x.ty!=='html')phDel('tm:'+x.id)});toast('Не хватает места в браузере. Удали старые материалы или загрузи файлы поменьше');break}
+      TU.q=[];TU.tab='list';TU.f='all';if(add.length===1)TU.det=add[0].id;save();render();window.scrollTo(0,0);toast('Опубликовано: '+add.length+(okb?'':'. PDF и Word сохранятся только до перезагрузки страницы'));break}
     case 'open':tuView(id);break;
     case 'vclose':tuClose();break;
-    case 'dl':if(m){const u=URL.createObjectURL(tuFile(m)),x=document.createElement('a');x.href=u;x.download=tuFile(m).name;document.body.appendChild(x);x.click();x.remove();setTimeout(()=>URL.revokeObjectURL(u),1000)}break;
-    case 'share':if(m){const f=tuFile(m);try{if(navigator.canShare&&navigator.canShare({files:[f]}))await navigator.share({files:[f],title:m.t,text:m.n||m.t});else toast('Здесь нельзя поделиться напрямую. Нажми «Скачать» и отправь файл')}catch(x){}}break;
-    case 'del':if(m&&confirm('Удалить «'+m.t+'»?')){T.mat=T.mat.filter(x=>x.id!==id);save();render();toast('Удалено')}break;
-    case 'edit':if(m){$('#layer').innerHTML=`<div class="scrim" data-act="closeModal"><div class="modal" role="dialog" aria-modal="true"><h3 style="font-size:18px">Изменить материал</h3>
-      <label>Название<input type="text" id="te-t" value="${esc(m.t)}"></label><label>Предмет<select id="te-s">${tuOpts(m.s)}</select></label>
-      <label>Подпись<textarea id="te-n">${esc(m.n)}</textarea></label>
-      <div class="row" style="justify-content:flex-end"><button class="btn" data-act="closeModal">Отмена</button><button class="btn primary" data-tu="edsave" data-id="${m.id}">Сохранить</button></div></div></div>`}break;
-    case 'edsave':if(m){m.t=($('#te-t').value||'').trim()||m.t;m.s=$('#te-s').value;m.n=($('#te-n').value||'').trim();save();closeModal();render()}break;
+    case 'dl':if(m){const f=await tuFile(m);if(!f){toast('Файл не найден');break}const u=URL.createObjectURL(f),x=document.createElement('a');x.href=u;x.download=f.name;document.body.appendChild(x);x.click();x.remove();setTimeout(()=>URL.revokeObjectURL(u),1000)}break;
+    case 'share':if(m){const f=await tuFile(m);if(!f){toast('Файл не найден');break}try{if(navigator.canShare&&navigator.canShare({files:[f]}))await navigator.share({files:[f],title:m.t,text:m.n||m.t});else toast('Здесь нельзя поделиться напрямую. Нажми «Скачать» и отправь файл')}catch(x){}}break;
+    case 'del':if(m&&confirm('Удалить «'+m.t+'»?')){T.mat=T.mat.filter(x=>x.id!==id);phDel('tm:'+id);TU.det=null;save();render();window.scrollTo(0,0);toast('Удалено')}break;
   }
 });
 
