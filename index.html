@@ -564,6 +564,44 @@ function overlapIds(d){
   for(let i=0;i<t.length-1;i++){if(toM(t[i].time)+t[i].dur>toM(t[i+1].time)){ids.add(t[i].id);ids.add(t[i+1].id)}}
   return ids;
 }
+let ovUndo=null;
+function resolveOverlaps(day){
+  const isToday=day===todayS();
+  const start=Math.max(toM(S.day.from),isToday?Math.ceil(nowM()/5)*5:0),end=Math.min(toM(S.day.to),22*60+30);
+  const timed=dayTasks(day).filter(t=>t.time&&!t.done);
+  const snap=timed.map(t=>({id:t.id,time:t.time}));
+  // кто остаётся на месте: важные раньше, при равной важности тот, что начинается раньше
+  const order=[...timed].sort((a,b)=>(b.prio-a.prio)||byTime(a,b));
+  const kept=[],moving=[];
+  for(const t of order){
+    const a=toM(t.time),b=a+t.dur;
+    if(kept.some(k=>a<toM(k.time)+k.dur&&toM(k.time)<b))moving.push(t);else kept.push(t);
+  }
+  if(!moving.length)return {moved:0,left:0,snap};
+  const busy=kept.map(t=>[toM(t.time),toM(t.time)+t.dur+padFor(t)]);
+  schBlocks(day).forEach(x=>busy.push([x.a,x.b]));
+  moving.sort((a,b)=>(b.prio-a.prio)||byTime(a,b));
+  let moved=0,left=0;
+  for(const t of moving){
+    const orig=toM(t.time);
+    busy.sort((a,b)=>a[0]-b[0]);
+    // свободные окна между занятыми кусками (после занятого оставляю 10 минут)
+    const gaps=[];let c=start;
+    for(const [a,b] of busy){if(a-c>=t.dur)gaps.push([c,a]);c=Math.max(c,b+10)}
+    if(end-c>=t.dur)gaps.push([c,end]);
+    // выбираю окно, ближайшее к исходному времени
+    let best=null,bd=1e9;
+    for(const [ga,gb] of gaps){
+      let s=Math.min(Math.max(orig,ga),gb-t.dur);
+      s=Math.min(gb-t.dur,Math.ceil(s/5)*5);if(s<ga)s=ga;
+      const d=Math.abs(s-orig);if(d<bd){bd=d;best=s}
+    }
+    if(best===null){t.time=null;left++}
+    else{t.time=fromM(best);busy.push([best,best+t.dur+padFor(t)]);moved++}
+  }
+  save();
+  return {moved,left,snap};
+}
 function overdue(){return S.tasks.filter(t=>!t.done&&t.date&&t.date<todayS())}
 const padFor=t=>t.dur>=90?10:0;
 function autoPlan(day){
@@ -1028,6 +1066,7 @@ function vDay(){
       ${isT&&!od.length&&open.length?`<div class="banner"><span>Устала или не успеваешь? Разложу дела на ближайшие дни без авралов.</span><button class="btn sm primary" data-act="softmove">Перенести мягко</button></div>`:''}
       ${isT?dueBanner()+confBanner():''}
       ${lowBat&&!heavy?'<div class="banner"><span>Энергия '+bat(sel)+' из 10: показываю только главное, максимум два дела.</span></div>':''}
+      ${ov.size?`<div class="banner"><span>Есть дела, которые идут одно на другом: ${ov.size}. Могу сама раскидать их по свободным окошкам.</span><button class="btn sm primary" data-act="resolveov">Распределить</button></div>`:''}
       ${heavy?'<div class="banner"><span>Сегодня тяжело, и это нормально. Одно маленькое дело уже хороший день.</span></div>':''}
       ${(timedOpen.length||unOpen.length||doneShown.length)?`<div class="tl">
         ${timedOpen.map(t=>taskRow(t,{ov})).join('')}
@@ -1880,7 +1919,7 @@ document.addEventListener('click',e=>{
     case 'delser':{if(task&&task.rep){const g=task.rep.g,c=S.tasks.filter(x=>x.rep&&x.rep.g===g&&!x.done).length;S.tasks=S.tasks.filter(x=>!(x.rep&&x.rep.g===g&&!x.done));save();closeModal();render();toast('Убрала невыполненных из серии: '+c)}break}
     case 'closeModal':if(el.classList.contains('scrim')&&e.target!==el)break;closeModal();break;
     case 'del':lastDel=task||null;S.tasks=S.tasks.filter(t=>t.id!==id);save();closeModal();render();toast('Дело удалено',!!lastDel);break;
-    case 'undo':if(lastDel){S.tasks.push(lastDel);lastDel=null;save();render();const tt=$('.toast');if(tt)tt.remove()}break;
+    case 'undo':if(ovUndo){ovUndo.forEach(x=>{const t=S.tasks.find(y=>y.id===x.id);if(t)t.time=x.time});ovUndo=null;save();render();const tt=$('.toast');if(tt)tt.remove();toast('Вернула как было')}else if(lastDel){S.tasks.push(lastDel);lastDel=null;save();render();const tt=$('.toast');if(tt)tt.remove()}break;
     case 'flt':flt=el.dataset.k;render();break;
     case 'tagmodal':openTagModal();break;
     case 'tagcol':tagColor=el.dataset.c;document.querySelectorAll('.sw').forEach(b=>b.setAttribute('aria-pressed',b.dataset.c===tagColor));break;
@@ -1894,6 +1933,8 @@ document.addEventListener('click',e=>{
     case 'aiclose':AIX.slot=null;AIX.burn=null;AIX.err='';render();break;
     case 'aiaddrest':aiAddRest(+el.dataset.i);break;
     case 'aiburn':aiBurn();break;
+    case 'resolveov':{const r=resolveOverlaps(sel);ovUndo=r.snap;render();
+      toast(r.moved||r.left?('Распределила: '+r.moved+(r.left?'. Не нашла места для '+r.left+', они теперь без времени.':'.')):'Пересечений не нашла.',!!(r.moved||r.left));break}
     case 'plan':{const r=autoPlan(sel);render();const f=freeInfo(sel).total;
       toast((r.placed?`Расставила ${r.placed} дел${r.left?`, ${r.left} не влезло`:''}.`:(r.left?'Свободного времени не осталось.':'Нечего расставлять.'))+(f?' Свободно после дел: '+durLabel(f)+'.':''));break}
     case 'rollover':{const o=overdue();o.forEach(t=>{t.date=todayS();t.time=null});save();render();toast('Хвосты перенесены на сегодня: '+o.length);break}
