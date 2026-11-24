@@ -565,15 +565,16 @@ function overlapIds(d){
   return ids;
 }
 let ovUndo=null;
-function resolveOverlaps(day){
+function resolveOverlaps(day,keepIds){
   const isToday=day===todayS();
   const start=Math.max(toM(S.day.from),isToday?Math.ceil(nowM()/5)*5:0),end=Math.min(toM(S.day.to),22*60+30);
   const timed=dayTasks(day).filter(t=>t.time&&!t.done);
   const snap=timed.map(t=>({id:t.id,time:t.time}));
   // кто остаётся на месте: важные раньше, при равной важности тот, что начинается раньше
   const order=[...timed].sort((a,b)=>(b.prio-a.prio)||byTime(a,b));
-  const kept=[],moving=[];
-  for(const t of order){
+  let kept=[],moving=[];
+  if(keepIds){const ov=overlapIds(day);kept=timed.filter(t=>!ov.has(t.id)||keepIds.has(t.id));moving=timed.filter(t=>ov.has(t.id)&&!keepIds.has(t.id))}
+  else for(const t of order){
     const a=toM(t.time),b=a+t.dur;
     if(kept.some(k=>a<toM(k.time)+k.dur&&toM(k.time)<b))moving.push(t);else kept.push(t);
   }
@@ -601,6 +602,26 @@ function resolveOverlaps(day){
   }
   save();
   return {moved,left,snap};
+}
+function ovClusters(day){
+  const ov=overlapIds(day),cl=[];let cur=null,end=0;
+  for(const x of dayTasks(day).filter(t=>t.time&&!t.done).sort(byTime)){
+    if(!ov.has(x.id))continue;const a=toM(x.time);
+    if(cur&&a<end){cur.push(x);end=Math.max(end,a+x.dur)}else{cur=[x];cl.push(cur);end=a+x.dur}
+  }
+  return cl;
+}
+function openOvModal(){
+  const cl=ovClusters(sel);if(!cl.length){toast('Пересечений не нашла');return}
+  const body=cl.map(g=>{
+    const top=[...g].sort((a,b)=>(b.prio-a.prio)||byTime(a,b))[0];
+    return `<div class="stack" style="gap:8px"><div class="eyebrow">Пересекаются · ${g[0].time}–${fromM(Math.max(...g.map(x=>toM(x.time)+x.dur))%1440)}</div>
+      ${g.map(x=>`<label class="li" style="font-size:14px;color:var(--ink);font-weight:500;cursor:pointer;flex-direction:row"><span><b>${esc(x.title)}</b><br><span class="muted" style="font-weight:400">${x.time}–${endT(x)} · ${durLabel(x.dur)}${x.prio===3?' · важно':''}</span></span><input type="checkbox" data-ov="${x.id}" data-g="${cl.indexOf(g)}" style="width:22px;height:22px;flex:none" ${x===top?'checked':''}></label>`).join('')}</div>`}).join('');
+  $('#layer').innerHTML=`<div class="scrim" data-act="ovskip"><div class="modal" role="dialog" aria-modal="true" aria-label="Что важно оставить">
+    <h3 style="font-size:20px">Что из этого важно?</h3>
+    <div class="muted" style="font-size:14px">Поставь галочку у того, что должно остаться на своём времени. Всё остальное я перенесу в свободные окошки.</div>
+    ${body}
+    <div class="row" style="justify-content:flex-end"><button class="btn ghost" data-act="ovskip">Отмена</button><button class="btn primary" data-act="ovapply">Перенести остальное</button></div></div></div>`;
 }
 function overdue(){return S.tasks.filter(t=>!t.done&&t.date&&t.date<todayS())}
 const padFor=t=>t.dur>=90?10:0;
@@ -1933,7 +1954,12 @@ document.addEventListener('click',e=>{
     case 'aiclose':AIX.slot=null;AIX.burn=null;AIX.err='';render();break;
     case 'aiaddrest':aiAddRest(+el.dataset.i);break;
     case 'aiburn':aiBurn();break;
-    case 'resolveov':{const r=resolveOverlaps(sel);ovUndo=r.snap;render();
+    case 'resolveov':openOvModal();break;
+    case 'ovskip':if(el.classList.contains('scrim')&&e.target!==el)break;closeModal();break;
+    case 'ovapply':{const boxes=[...document.querySelectorAll('#layer [data-ov]:checked')],keep=new Set(boxes.map(b=>b.dataset.ov));
+      const bad=ovClusters(sel).some(g=>{const k=g.filter(x=>keep.has(x.id));return k.some((x,i)=>k.some((y,j)=>i<j&&toM(x.time)<toM(y.time)+y.dur&&toM(y.time)<toM(x.time)+x.dur))});
+      if(bad){toast('Эти два дела идут одновременно. Оставь из них одно.');break}
+      const r=resolveOverlaps(sel,keep);ovUndo=r.snap;closeModal();render();
       toast(r.moved||r.left?('Распределила: '+r.moved+(r.left?'. Не нашла места для '+r.left+', они теперь без времени.':'.')):'Пересечений не нашла.',!!(r.moved||r.left));break}
     case 'plan':{const r=autoPlan(sel);render();const f=freeInfo(sel).total;
       toast((r.placed?`Расставила ${r.placed} дел${r.left?`, ${r.left} не влезло`:''}.`:(r.left?'Свободного времени не осталось.':'Нечего расставлять.'))+(f?' Свободно после дел: '+durLabel(f)+'.':''));break}
