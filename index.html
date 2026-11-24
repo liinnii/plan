@@ -803,6 +803,7 @@ const IC={
  mic:'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
  ok:'<svg viewBox="0 0 24 24" fill="none" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'
 };
+const WKX={};
 const VIEWS=[['day','День'],['week','Неделя'],['sch','Пары'],['habits','Привычки'],['focus','Фокус'],['notes','Заметки'],['conf','Конференции'],['joy','Радость'],['chat','Поддержка'],['tutor','Репетитор'],['ai','Учёба ИИ']];
 IC.chat='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/><path d="M8.5 9.5h7M8.5 12.5h4"/></svg>';
 IC.tutor='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4M7 9h6M7 12h4"/></svg>';
@@ -1020,7 +1021,7 @@ function vDay(){
       : (isT&&list.length&&!open.length?'<section class="now fade"><div><h2>Всё сделано на сегодня</h2><div class="muted">Можно выдохнуть. Ты молодец.</div></div></section>':'')}
     <section class="card">
       <div class="row"><h3 class="grow" style="font-size:18px">${(soft||heavy)?'Главное на сегодня':'План дня'}</h3>
-        <button class="btn sm primary" data-act="plan">Разложить день</button></div>
+        <button class="btn sm" data-act="aislot" ${AIX.busy?'disabled':''}>${AIX.busy==='slot'?'Думаю…':'ИИ: время'}</button><button class="btn sm primary" data-act="plan">Разложить день</button></div>
       ${(()=>{const pr=[...new Set(list.map(t=>t.cat))];if(flt!=='all'&&!pr.includes(flt)&&CATS[flt])pr.push(flt);
         return (pr.length>1||flt!=='all')?`<div class="cats" style="margin-top:12px"><button data-act="flt" data-k="all" aria-pressed="${flt==='all'}">Все</button>${pr.filter(k=>CATS[k]).map(k=>`<button data-act="flt" data-k="${k}" aria-pressed="${flt===k}" style="color:${CATS[k].c}">${esc(CATS[k].n)}</button>`).join('')}<button data-act="tagmodal" aria-pressed="false" style="color:var(--accent)">+ Тег</button></div>`:''})()}
       ${od.length&&isT?`<div class="banner"><span>Со вчера осталось дел: ${od.length}. Это нормально, ничего страшного.</span><button class="btn sm primary" data-act="softmove">Перенести мягко</button><button class="btn sm" data-act="carestart">Перенести с заботой</button><button class="btn sm" data-act="rollover">На сегодня</button><button class="btn sm ghost" data-act="release">В копилку</button></div>`:''}
@@ -1036,7 +1037,9 @@ function vDay(){
       ${open.length&&!hasRest&&planMin>180?'<div class="banner"><span>В плане нет отдыха. Добавим небольшую паузу?</span><button class="btn sm" data-act="rest" data-i="0">Прогулка 30 мин</button></div>':''}
       ${hiddenUn.length?`<button class="btn sm ghost" data-act="more" style="margin-top:14px">${showRest?'Скрыть остальное':'Ещё дел: '+hiddenUn.length+'. Если будут силы'}</button>${showRest?'<div class="tl">'+hiddenUn.map(t=>taskRow(t,{ov})).join('')+'</div>':''}`:''}
       ${doneShown.length?`<div class="eyebrow group-title">Уже получилось · ${doneShown.length}</div><div class="tl">${doneShown.map(t=>taskRow(t,{ov})).join('')}</div>`:''}
+      ${list.length?`<button class="btn" style="width:100%;margin-top:14px" data-act="aiburn" ${AIX.busy?'disabled':''}>${AIX.busy==='burn'?'Думаю…':'🌿 ИИ: как не выгореть'}</button>`:''}
     </section>
+    ${vAIX()}
     ${vAdvice()}
     ${vSchCard(sel)}
     ${vFree(fi,fp)}
@@ -1092,8 +1095,8 @@ function vWeek(){
     return `<article class="day ${d===todayS()?'is-today':''}"><header><button data-act="openday" data-d="${d}">${WD[parseD(d).getDay()]}, ${parseD(d).getDate()}</button><span class="muted" style="font-size:12px">${mins?durLabel(mins):'свободно'}</span></header>
       <div class="bar"><i style="width:${pct}%;background:${col}"></i></div>
       ${pi?`<button class="mini" data-act="nav" data-v="sch" style="text-align:left;background:var(--soft)"><b style="font-variant-numeric:tabular-nums;color:var(--muted)">${fromM(pi.a)}–${fromM(pi.b)}</b><span>Пары${pi.n?' ('+pi.n+')':''} · ${durLabel(pm)}</span></button>`:''}
-      ${show.slice(0,5).map(t=>`<button class="mini ${t.done?'done':''}" data-act="edit" data-id="${t.id}" style="text-align:left"><b style="font-variant-numeric:tabular-nums;color:var(--muted)">${t.time?t.time+'–'+endT(t):'··'}</b><span>${esc(t.title)}</span></button>`).join('')}
-      ${show.length>5?`<span class="muted" style="font-size:12px">и ещё ${show.length-5}</span>`:''}
+      ${show.slice(0,WKX[d]?99:5).map(t=>`<button class="mini ${t.done?'done':''}" data-act="edit" data-id="${t.id}" style="text-align:left"><b style="font-variant-numeric:tabular-nums;color:var(--muted)">${t.time?t.time+'–'+endT(t):'··'}</b><span>${esc(t.title)}</span></button>`).join('')}
+      ${show.length>5?`<button class="mini" data-act="wkmore" data-d="${d}" style="justify-content:center;color:var(--accent);font-weight:600">${WKX[d]?'Свернуть':'Ещё '+(show.length-5)+' ▾'}</button>`:''}
       ${S.tasks.filter(t=>t.due===d&&!t.done).map(t=>`<button class="mini" data-act="edit" data-id="${t.id}" style="text-align:left;background:#FFF0D6;color:#8A5A00"><b>⚑</b><span>срок: ${esc(t.title)}</span></button>`).join('')}
       ${!show.length&&!pi&&!S.tasks.some(t=>t.due===d&&!t.done)?'<span class="muted" style="font-size:13px">Пока ничего</span>':''}</article>`}).join('')}</div>
   ${(()=>{const wk=days.flatMap(dayTasks),tot=wk.reduce((x,t)=>x+t.dur,0),rs=wk.filter(t=>t.cat==='rest').reduce((x,t)=>x+t.dur,0),pc=tot?Math.round(rs/tot*100):0;
@@ -1775,6 +1778,7 @@ document.addEventListener('click',e=>{
     case 'nav':view=el.dataset.v;if(view==='week')weekStart=mondayOf(sel);render();window.scrollTo(0,0);break;
     case 'day':sel=+el.dataset.n===0?todayS():addDays(sel,+el.dataset.n);render();break;
     case 'wk':weekStart=+el.dataset.n===0?mondayOf(todayS()):addDays(weekStart,7*+el.dataset.n);render();break;
+    case 'wkmore':WKX[el.dataset.d]=!WKX[el.dataset.d];render();break;
     case 'openday':sel=el.dataset.d;view='day';render();window.scrollTo(0,0);break;
     case 'cat':curCat=el.dataset.k;S.lastCat=curCat;save();
       document.querySelectorAll('#cats button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.k===curCat));updatePreview();break;
@@ -1885,6 +1889,11 @@ document.addEventListener('click',e=>{
       const t={id:'t_'+uid(),n,c:tagColor,kw:(($('#tg-k')||{}).value||'').toLowerCase().split(/[,;\s]+/).filter(x=>x.length>=3)};S.tags.push(t);CATS[t.id]={n:t.n,c:t.c};curCat=t.id;S.lastCat=t.id;save();closeModal();render();toast('Тег создан: '+n);break}
     case 'tagdel':{S.tags=S.tags.filter(t=>t.id!==id);delete CATS[id];S.tasks.forEach(t=>{if(t.cat===id)t.cat='work'});if(curCat===id)curCat='work';if(flt===id)flt='all';save();render();openTagModal();break}
     case 'toToday':if(task){task.date=todayS();save();render();toast('Перенесено на сегодня')}break;
+    case 'aislot':aiSlot();break;
+    case 'aislotok':aiSlotOk();break;
+    case 'aiclose':AIX.slot=null;AIX.burn=null;AIX.err='';render();break;
+    case 'aiaddrest':aiAddRest(+el.dataset.i);break;
+    case 'aiburn':aiBurn();break;
     case 'plan':{const r=autoPlan(sel);render();const f=freeInfo(sel).total;
       toast((r.placed?`Расставила ${r.placed} дел${r.left?`, ${r.left} не влезло`:''}.`:(r.left?'Свободного времени не осталось.':'Нечего расставлять.'))+(f?' Свободно после дел: '+durLabel(f)+'.':''));break}
     case 'rollover':{const o=overdue();o.forEach(t=>{t.date=todayS();t.time=null});save();render();toast('Хвосты перенесены на сегодня: '+o.length);break}
@@ -1946,6 +1955,74 @@ function softMove(){
 }
 /* ---------- ИИ для учёбы: рецензент и карточки ---------- */
 let AV={tab:'rev',kind:'essay',rt:'',ft:'',busy:false,err:'',rev:null,deck:S.deck||null,mode:'cards',queue:null,kn:0,flip:false,q:0,pick:null,score:0};
+
+/* ---------- ИИ: время для дел и защита от выгорания ---------- */
+let AIX={busy:'',slot:null,burn:null,err:''};
+function aiBusyBlocks(day){const b=[];dayTasks(day).filter(t=>t.time).forEach(t=>b.push([toM(t.time),toM(t.time)+(t.dur||0)]));schBlocks(day).forEach(x=>b.push([x.a,x.b]));return b.sort((a,c)=>a[0]-c[0])}
+function aiFail(e){const m=aiErr(e);if(m==='nokey'){AV.err='nokey';AIX.err='key'}else AIX.err=m}
+const aiLo=day=>Math.max(toM(S.day.from),day===todayS()?Math.ceil(nowM()/5)*5:0);
+function aiTasksTxt(l){return l.map(t=>({id:t.id,title:t.title,minutes:t.dur,important:t.prio>=2,tag:(CATS[t.cat]||{}).n||t.cat}))}
+async function aiSlot(){
+  if(AIX.busy)return;const day=sel,un=dayTasks(day).filter(t=>!t.time&&!t.done);
+  if(!un.length){toast('Нет дел без времени');return}
+  AIX.busy='slot';AIX.slot=null;AIX.err='';render();
+  try{
+    const lo=aiLo(day),hi=toM(S.day.to),bat0=bat(day),md=mood(day);
+    const busy=aiBusyBlocks(day).filter(b=>b[1]>lo&&b[0]<hi);
+    const prompt='Ты помощник по планированию для студентки, которая легко выгорает. Расставь время для дел без времени на один день. '+
+     'Правила: ставь только в свободные окна; не пересекай занятое время и дела между собой; между делами оставляй 10 минут, после 90 минут работы подряд делай паузу; '+
+     'самые сложные и важные дела ставь на утро или на время, когда обычно больше сил; лёгкие дела и отдых на вечер; если сил мало (батарейка 1-3 из 10) или день тяжёлый, ставь меньше сложного; '+
+     'время кратно 5 минутам, формат HH:MM; если дело не помещается, не включай его. Верни только JSON вида {"plan":[{"id":"...","time":"HH:MM","why":"короткая причина, до 12 слов"}],"note":"одно тёплое предложение"}.\n'+
+     'Данные: '+JSON.stringify({day:day,today:day===todayS(),dayFrom:fromM(lo),dayTo:fromM(hi),busy:busy.map(b=>fromM(b[0])+'-'+fromM(b[1])),battery:bat0||null,heavyDay:!!S.heavy[day],tasks:aiTasksTxt(un)});
+    const r=await aiJ(prompt),taken=busy.map(b=>[b[0],b[1]]),out=[],byId=Object.fromEntries(un.map(t=>[t.id,t])),seen=new Set();
+    const fits=(m,d)=>m>=lo&&m+d<=hi&&taken.every(b=>m+d<=b[0]||m>=b[1]);
+    const put=(t,pref,why)=>{let m=Math.round(pref/5)*5,ok=fits(m,t.dur);
+      if(!ok){for(let x=Math.max(lo,m);x+t.dur<=hi;x+=5)if(fits(x,t.dur)){m=x;ok=true;break}}
+      if(!ok){for(let x=lo;x+t.dur<=hi;x+=5)if(fits(x,t.dur)){m=x;ok=true;break}}
+      if(ok){taken.push([m,m+t.dur+padFor(t)+10]);out.push({id:t.id,m,why:String(why||'').slice(0,100)})}};
+    (Array.isArray(r.plan)?r.plan:[]).forEach(it=>{const t=it&&byId[it.id];if(!t||seen.has(t.id))return;seen.add(t.id);put(t,/^\d{1,2}:\d{2}$/.test(it.time||'')?toM(it.time):lo,it.why)});
+    un.filter(t=>!seen.has(t.id)).forEach(t=>put(t,lo,'Свободное окно'));
+    out.sort((a,b)=>a.m-b.m);
+    AIX.slot={day,items:out,left:un.length-out.length,note:typeof r.note==='string'?r.note.slice(0,160):''};
+  }catch(e){aiFail(e)}
+  AIX.busy='';render();
+}
+function aiSlotOk(){const p=AIX.slot;if(!p)return;p.items.forEach(x=>{const t=S.tasks.find(y=>y.id===x.id);if(t)t.time=fromM(x.m)});AIX.slot=null;save();render();toast('Время расставлено')}
+async function aiBurn(){
+  if(AIX.busy)return;const day=sel,list=dayTasks(day);
+  AIX.busy='burn';AIX.burn=null;AIX.err='';render();
+  try{
+    const open=list.filter(t=>!t.done),work=open.filter(t=>t.cat!=='rest'),rest=list.filter(t=>t.cat==='rest');
+    const load=[0,1,2].map(i=>{const d=addDays(day,i);return {date:d,workMinutes:dayTasks(d).filter(t=>!t.done&&t.cat!=='rest').reduce((a,t)=>a+t.dur,0)}});
+    const moods=[...Array(7)].map((_,i)=>mood(addDays(todayS(),i-6)).mood||0);
+    const prompt='Ты добрая помощница, которая бережёт студентку от выгорания. Говори на «ты», тепло, без давления и без морали, в женском роде о ней. Посмотри на её день и дай советы. '+
+     'Оцени нагрузку: low если спокойно, medium если плотно, high если есть риск выгорания (много часов работы, нет отдыха, мало сил, тяжёлые дни подряд). '+
+     'Верни только JSON вида {"level":"low|medium|high","summary":"1-2 коротких предложения","tips":["3-4 конкретных совета, до 18 слов каждый"],"rests":[{"title":"короткое название отдыха","dur":15,"time":"HH:MM или null"}]}. В rests до 3 пунктов отдыха, которые стоит добавить в план (если отдыха уже хватает, пустой список).\n'+
+     'Данные: '+JSON.stringify({day:day,openWorkMinutes:work.reduce((a,t)=>a+t.dur,0),restMinutes:rest.reduce((a,t)=>a+t.dur,0),battery:bat(day)||null,heavyDay:!!S.heavy[day],moodLast7Days:moods,nextDaysLoad:load,dayFrom:S.day.from,dayTo:S.day.to,tasks:open.map(t=>({title:t.title,minutes:t.dur,time:t.time||null,tag:(CATS[t.cat]||{}).n||t.cat}))});
+    const r=await aiJ(prompt),lo=aiLo(day),hi=toM(S.day.to),busy=aiBusyBlocks(day);
+    const rests=(Array.isArray(r.rests)?r.rests:[]).filter(x=>x&&typeof x.title==='string'&&+x.dur>=5&&+x.dur<=120).slice(0,3).map(x=>{const d=Math.round(+x.dur/5)*5;let tm=null;if(/^\d{1,2}:\d{2}$/.test(x.time||'')){const m=toM(x.time);if(m>=lo&&m+d<=hi&&busy.every(b=>m+d<=b[0]||m>=b[1]))tm=fromM(m)}return {title:x.title.trim().slice(0,40),dur:d,time:tm}});
+    AIX.burn={day,level:['low','medium','high'].includes(r.level)?r.level:'medium',summary:String(r.summary||'').slice(0,260),tips:arr(r.tips,4),rests};
+  }catch(e){aiFail(e)}
+  AIX.busy='';render();
+}
+function aiAddRest(i){const b=AIX.burn;if(!b)return;const list=i<0?b.rests:[b.rests[i]];list.filter(Boolean).forEach(x=>S.tasks.push({id:uid(),title:x.title,cat:'rest',date:b.day,time:x.time,dur:x.dur,prio:1,done:false}));b.rests=i<0?[]:b.rests.filter((_,k)=>k!==i);save();render();toast('Отдых добавлен в план')}
+function vAIX(){
+  let h='';
+  if(AIX.err==='key')h+=`<section class="card">${aiKeyBox()}</section>`;
+  else if(AIX.err)h+=`<section class="card"><div class="banner"><span>${esc(AIX.err)}</span><button class="btn sm" data-act="aiclose">Закрыть</button></div></section>`;
+  const p=AIX.slot;
+  if(p&&p.day===sel)h+=`<section class="card"><div class="eyebrow">ИИ предлагает время</div>${p.note?`<p class="muted" style="margin:6px 0 0;font-size:13px">${esc(p.note)}</p>`:''}
+    <div class="stack" style="gap:6px;margin-top:10px">${p.items.map(x=>{const t=S.tasks.find(y=>y.id===x.id);return t?`<div class="li"><span><b style="font-variant-numeric:tabular-nums">${fromM(x.m)}–${fromM(x.m+t.dur)}</b> ${esc(t.title)}${x.why?`<br><span class="muted" style="font-size:12px">${esc(x.why)}</span>`:''}</span></div>`:''}).join('')||'<div class="muted">Свободных окон не нашлось.</div>'}</div>
+    ${p.left>0?`<p class="muted" style="font-size:12px;margin:8px 0 0">Не поместилось дел: ${p.left}. Их можно перенести на другой день.</p>`:''}
+    <div class="row" style="margin-top:12px;gap:8px"><button class="btn primary" data-act="aislotok" ${p.items.length?'':'disabled'}>Применить</button><button class="btn ghost" data-act="aiclose">Не надо</button></div></section>`;
+  const b=AIX.burn;
+  if(b&&b.day===sel){const L={low:['Нагрузка в порядке','var(--good)'],medium:['Плотновато','var(--warn)'],high:['Есть риск выгорания','var(--bad)']}[b.level];
+    h+=`<section class="card"><div class="eyebrow">🌿 Чтобы не выгореть</div><div style="font-weight:700;color:${L[1]};margin:6px 0">${L[0]}</div>
+    ${b.summary?`<p style="margin:0 0 10px">${esc(b.summary)}</p>`:''}
+    ${b.tips.length?`<div class="stack" style="gap:6px">${b.tips.map(t=>`<div class="li"><span>${esc(t)}</span></div>`).join('')}</div>`:''}
+    ${b.rests.length?`<div class="eyebrow" style="margin:14px 0 6px">Добавить отдых в план</div><div class="stack" style="gap:6px">${b.rests.map((x,i)=>`<div class="li"><span><b>${esc(x.title)}</b><br><span class="muted" style="font-size:12px">${x.dur} мин${x.time?' · '+x.time:''}</span></span><button class="btn sm" data-act="aiaddrest" data-i="${i}">Добавить</button></div>`).join('')}</div>${b.rests.length>1?'<button class="btn sm ghost" style="margin-top:8px" data-act="aiaddrest" data-i="-1">Добавить всё</button>':''}`:''}
+    <button class="btn sm ghost" style="margin-top:12px" data-act="aiclose">Закрыть</button></section>`}
+  return h}
 async function aiJ(prompt){
   let sm=null;try{sm=window.claude&&window.claude.use&&await window.claude.use('sample')}catch(x){}
   if(sm)return await sm.json(prompt,{cache:false});
@@ -2386,6 +2463,7 @@ document.addEventListener('click',e=>{
     if(idx>=0){mrServe(idx,k);return}
     toast(g.a+' '+g.name+' просит: '+MR_CH[g.c].i[g.l-1]+' '+MR_CH[g.c].t[g.l-1]+'. Собери это на кухне')}
 });
+
 render();
 if(!bat(todayS())&&S.batSkip!==todayS())openBat();
 petTick();setInterval(petTick,1000);
