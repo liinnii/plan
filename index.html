@@ -837,6 +837,7 @@ function cfCard(c){
   if(c.w)ch.push('<span class="chip">'+esc(c.w)+'</span>');
   if(gr==='sent')ch.push('<span class="chip" style="color:var(--good)">заявка подана</span>');
   return '<div class="cfc fade"><div style="font-weight:700;font-size:16px">'+esc(c.t||'Без названия')+'</div>'+
+    (c.s?'<div style="font-size:13px;color:var(--accent);font-weight:600">'+esc(c.s)+'</div>':'')+
     (ch.length?'<div class="cfm">'+ch.join('')+'</div>':'')+
     (c.p?'<details><summary>Текст поста</summary><div class="cfp">'+esc(c.p)+'</div></details>':'')+
     '<div class="cfb">'+
@@ -845,13 +846,13 @@ function cfCard(c){
     '<button class="btn sm ghost" data-cf="edit" data-id="'+c.id+'">Изменить</button>'+
     '<button class="btn sm ghost" data-cf="del" data-id="'+c.id+'">Удалить</button></div></div>';
 }
-function cfSync(){['t','p','l','dl','d','w'].forEach(k=>{const f=$('#cf-'+k);if(f)CF.dr[k]=f.value})}
+function cfSync(){['t','p','l','dl','d','w','s'].forEach(k=>{const f=$('#cf-'+k);if(f)CF.dr[k]=f.value})}
 async function cfAI(auto){
   if(CF.busy)return;
   cfSync();const txt=(CF.dr.p||'').trim();
   if(txt.length<30){if(!auto)toast('Сначала вставь текст поста');return}
   CF.busy=true;CF.msg='';CF.key=false;render();
-  const pr='Ты помощник студента-исследователя. Ниже пост с анонсом конференции. Извлеки данные. Сегодня '+todayS()+'. Даты верни как ГГГГ-ММ-ДД; если год не указан, возьми ближайшую будущую дату. «deadline» это последний срок подачи заявки на участие, тезисов или статьи (если сроков несколько, возьми срок подачи заявки). «date» это дата начала конференции. Ничего не выдумывай: если данных нет, верни пустую строку. Пост: \"\"\"'+txt.slice(0,8000)+'\"\"\" Верни только JSON: {\"title\":\"название конференции, коротко\",\"deadline\":\"\",\"date\":\"\",\"place\":\"формат и место, коротко, например: Онлайн или Волгоград, очно\",\"link\":\"ссылка из текста, если есть\"}. Без markdown.';
+  const pr='Ты помощник студента-исследователя. Ниже пост с анонсом конференции. Извлеки данные. Сегодня '+todayS()+'. Даты верни как ГГГГ-ММ-ДД; если год не указан, возьми ближайшую будущую дату. «deadline» это последний срок подачи заявки на участие, тезисов или статьи (если сроков несколько, возьми срок подачи заявки). «date» это дата начала конференции. Ничего не выдумывай: если данных нет, верни пустую строку. Пост: \"\"\"'+txt.slice(0,8000)+'\"\"\" Верни только JSON: {\"title\":\"название конференции, коротко\",\"deadline\":\"\",\"date\":\"\",\"subjects\":\"2-4 предмета или направления через запятую, коротко, например: право, философия\",\"place\":\"формат и место, коротко, например: Онлайн или Волгоград, очно\",\"link\":\"ссылка из текста, если есть\"}. Без markdown.';
   try{
     const r=await aiJ(pr)||{};
     const okD=s=>/^\d{4}-\d{2}-\d{2}$/.test(s||'')&&!isNaN(parseD(s).getTime());
@@ -859,7 +860,7 @@ async function cfAI(auto){
     put('t',String(r.title||'').slice(0,120));
     if(okD(r.deadline))put('dl',r.deadline);
     if(okD(r.date))put('d',r.date);
-    put('w',String(r.place||'').slice(0,80));
+    put('s',String(r.subjects||'').slice(0,100));put('w',String(r.place||'').slice(0,80));
     put('l',r.link);
     CF.msg=(r.title||okD(r.deadline)||okD(r.date))?'Заполнила поля. Проверь даты и сохрани.':'Не нашла в тексте названия и дат, заполни вручную.';
   }catch(e){
@@ -885,6 +886,7 @@ function vConf(){
   (CF.key?'<div class="stack" style="gap:8px"><div class="muted" style="font-size:13px">Нужен бесплатный ключ Google Gemini: <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>. Ключ хранится только в этом браузере.</div><input type="password" id="cf-key" autocomplete="off" placeholder="AIza…"><button type="button" class="btn sm primary" data-cf="key">Сохранить ключ и разобрать</button></div>':'')+
   '<label>Ссылка на пост<input type="text" id="cf-l" value="'+esc(v.l||'')+'" placeholder="t.me/... или адрес сайта"></label>'+
   '<div class="grid2"><label>Срок подачи заявки<input type="date" id="cf-dl" value="'+esc(v.dl||'')+'"></label><label>Дата конференции<input type="date" id="cf-d" value="'+esc(v.d||'')+'"></label></div>'+
+  '<label>Предметы и темы<input type="text" id="cf-s" value="'+esc(v.s||'')+'" placeholder="Например: право, философия, педагогика"></label>'+
   '<label>Формат или место<input type="text" id="cf-w" value="'+esc(v.w||'')+'" placeholder="Онлайн, очно, город"></label>'+
   '<div class="row" style="justify-content:flex-end">'+(ed?'<button class="btn" data-cf="cancel">Отмена</button>':'')+'<button class="btn primary" data-cf="save">'+(ed?'Сохранить изменения':'Сохранить пост')+'</button></div>'+
   '</div></section>'+
@@ -903,7 +905,7 @@ document.addEventListener('click',e=>{
     CF.key=false;cfAI(false)}
   else if(a==='save'){
     const gv=i=>(($('#cf-'+i)||{}).value||'').trim();
-    const o={t:gv('t'),p:gv('p'),l:gv('l'),dl:gv('dl'),d:gv('d'),w:gv('w')};
+    const o={t:gv('t'),p:gv('p'),l:gv('l'),dl:gv('dl'),d:gv('d'),w:gv('w'),s:gv('s')};
     if(!o.t&&!o.p){toast('Напиши название или вставь текст поста');const f=$('#cf-t');if(f)f.focus();return}
     if(!o.t)o.t=o.p.split('\n')[0].slice(0,80);
     let it=CF.edit&&S.conf.find(x=>x.id===CF.edit);
@@ -911,7 +913,7 @@ document.addEventListener('click',e=>{
     else{it=Object.assign({id:uid(),st:'new',ts:Date.now()},o);S.conf.push(it);toast('Пост сохранён')}
     CF.edit=null;CF.dr={};CF.tab=cfGroup(it);save();render();
   }
-  else if(a==='edit'&&c){CF.edit=id;CF.dr={t:c.t||'',p:c.p||'',l:c.l||'',dl:c.dl||'',d:c.d||'',w:c.w||''};render();window.scrollTo(0,0)}
+  else if(a==='edit'&&c){CF.edit=id;CF.dr={t:c.t||'',p:c.p||'',l:c.l||'',dl:c.dl||'',d:c.d||'',w:c.w||'',s:c.s||''};render();window.scrollTo(0,0)}
   else if(a==='cancel'){CF.edit=null;CF.dr={};render()}
   else if(a==='sent'&&c){c.st=c.st==='sent'?'new':'sent';save();render();toast(c.st==='sent'?'Отметила: заявка подана':'Вернула в актуальные')}
   else if(a==='del'&&c){if(!confirm('Удалить этот пост?'))return;S.conf=S.conf.filter(x=>x.id!==id);if(CF.edit===id){CF.edit=null;CF.dr={}}save();render()}
