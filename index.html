@@ -200,6 +200,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
 .sw[aria-pressed="true"]{border-color:var(--ink)}
 .joygrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr));gap:16px}
 .li{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:14px;background:var(--surface2);overflow-wrap:anywhere}
+.hsth{width:72px;height:72px;object-fit:cover;border-radius:12px;border:1px solid var(--line);display:block;flex:none}
 .li .x{opacity:.5;padding:2px 8px;font-size:18px;line-height:1}
 .big{font-family:var(--font-d);font-size:28px;line-height:1.1}
 .mdots{display:flex;gap:6px;margin-top:10px}
@@ -796,7 +797,7 @@ function vHw(){
   const subs=hwSubjects(),all=S.hw.map(h=>({h,i:hwInfo(h)})),act=all.filter(x=>!x.i.fin).sort((a,b)=>a.h.due<b.h.due?-1:1),fin=all.filter(x=>x.i.fin);
   const un=act.filter(x=>!x.i.open.length),tot=act.reduce((s,x)=>s+Math.max(0,x.h.min-x.i.doneMin),0);
   return '<div class="head"><div><div class="eyebrow">Домашка</div><h1>Что задали</h1><p>Запиши предмет, что сделать и до какого срока. Потом одной кнопкой разложу по свободным окошкам с учётом пар.</p></div></div>'+
-  '<div class="stack"><section class="card"><div class="row"><h3 class="grow" style="font-size:16px">Новая домашка</h3></div><div class="stack" style="gap:10px;margin-top:10px">'+
+  '<div class="stack">'+vHs()+'<section class="card"><div class="row"><h3 class="grow" style="font-size:16px">Новая домашка</h3></div><div class="stack" style="gap:10px;margin-top:10px">'+
   '<label>Предмет<input type="text" id="hw-s" list="hw-subjs" placeholder="Например, Гражданское право" autocomplete="off"></label><datalist id="hw-subjs">'+subs.map(s=>'<option value="'+esc(s)+'">').join('')+'</datalist>'+
   (subs.length?'<div class="row" style="gap:6px">'+subs.slice(0,8).map(s=>'<button type="button" class="qc" data-hw="subj" data-v="'+esc(s)+'">'+esc(s)+'</button>').join('')+'</div>':'')+
   '<label>Что нужно сделать<input type="text" id="hw-t" placeholder="Например, конспект главы 5 и задачи" autocomplete="off"></label>'+
@@ -830,6 +831,80 @@ document.addEventListener('change',e=>{
   const id=e.target.dataset&&e.target.dataset.hwdue;if(!id)return;const h=S.hw.find(x=>x.id===id);if(!h||!e.target.value)return;
   if(e.target.value<todayS()){toast('Выбери дату не раньше сегодня');render();return}
   h.due=e.target.value;S.tasks.forEach(t=>{if(t.hwId===id&&!t.done)t.due=h.due});save();render();toast('Срок изменён. Нажми «Пересчитать», чтобы переставить части.')});
+
+/* ---------- решение домашки по фото ---------- */
+if(!S.hws)S.hws=[];
+let HS={files:[],prev:[],note:'',busy:false,open:null,key:false,err:''};
+const HSP='На фото домашнее задание студентки колледжа. Прочитай все задания и реши их по порядку. Пиши по-русски, просто и понятно, как терпеливый репетитор. Формулы и степени пиши обычным текстом. Верни JSON строго такого вида: {"subject":"предмет в 1-3 словах","items":[{"task":"условие задания кратко","steps":["шаг решения","следующий шаг"],"answer":"итоговый ответ"}],"note":"если фото нечёткое, часть не разобрана или ответ неоднозначен, напиши об этом одной фразой, иначе пустая строка"}. Если на фото нет задания, оставь items пустым и объясни в note.';
+function hsThumb(f){return new Promise(res=>{const u=URL.createObjectURL(f),im=new Image();
+  im.onload=()=>{const k=Math.min(1,260/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(im.width*k));c.height=Math.max(1,Math.round(im.height*k));c.getContext('2d').drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);res(c.toDataURL('image/jpeg',0.6))};
+  im.onerror=()=>{URL.revokeObjectURL(u);res('')};im.src=u})}
+function hsNorm(j){if(Array.isArray(j))j={items:j};j=j||{};const it=Array.isArray(j.items)?j.items:[];
+  return {subj:String(j.subject||'').slice(0,60),note:String(j.note||'').slice(0,300),
+    items:it.slice(0,20).map(x=>x||{}).map(x=>({task:String(x.task||'').slice(0,400),steps:(Array.isArray(x.steps)?x.steps:[]).slice(0,25).map(s=>String(s).slice(0,500)),answer:String(x.answer||'').slice(0,400)}))}}
+function hsText(e){return (e.subj||'Домашка')+'\n\n'+e.items.map((x,i)=>(i+1)+'. '+x.task+'\n'+x.steps.map((s,k)=>'   '+(k+1)+') '+s).join('\n')+(x.answer?'\n   Ответ: '+x.answer:'')).join('\n\n')+(e.note?'\n\n'+e.note:'')}
+function hsBody(e){
+  return (e.note?'<div class="banner"><span>'+esc(e.note)+'</span></div>':'')+
+  '<div class="stack" style="gap:8px;margin-top:10px">'+e.items.map((x,i)=>'<div class="li" style="flex-direction:column;align-items:stretch;gap:6px"><b>'+(e.items.length>1?(i+1)+'. ':'')+esc(x.task)+'</b>'+
+    x.steps.map((s,k)=>'<div style="font-size:14px"><span class="muted">'+(k+1)+'.</span> '+esc(s)+'</div>').join('')+
+    (x.answer?'<div><span class="chip" style="color:var(--accent);white-space:normal">Ответ: '+esc(x.answer)+'</span></div>':'')+'</div>').join('')+'</div>'}
+function hsWhen(ts){try{return new Date(ts).toLocaleString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}catch(x){return ''}}
+function vHs(){
+  const need=!scHasClaude()&&(!aiCfg().key||HS.key);
+  let top;
+  if(need)top='<div class="muted" style="font-size:13px">Чтобы ИИ мог читать фото, нужен бесплатный ключ Google Gemini. Получи его на <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> и вставь сюда. Ключ хранится только в этом браузере.</div><label>Ключ API<input type="password" id="hs-key" autocomplete="off" value="'+esc(aiCfg().key||'')+'" placeholder="AIza…"></label><div class="row"><button type="button" class="btn primary" data-hs="key">Сохранить ключ</button></div>';
+  else top=(HS.prev.length?'<div class="row" style="gap:10px;flex-wrap:wrap">'+HS.prev.map((p,i)=>'<span style="position:relative;display:inline-block"><img class="hsth" src="'+esc(p)+'" alt="Фото '+(i+1)+'"><button type="button" class="xdel" data-hs="rm" data-i="'+i+'" aria-label="Убрать фото" style="position:absolute;top:-6px;right:-6px">×</button></span>').join('')+'</div>':'')+
+    (HS.busy?'<div class="chip" role="status">Решаю… это может занять до минуты</div>':
+    '<div class="row" style="gap:8px;flex-wrap:wrap"><label class="btn'+(HS.files.length?'':' primary')+'" style="cursor:pointer">'+(HS.files.length?'Ещё фото':'Сфотографировать или выбрать')+'<input type="file" id="hs-file" accept="image/*" multiple hidden></label></div>'+
+    (HS.files.length?'<label>Комментарий (по желанию)<input type="text" id="hs-note" value="'+esc(HS.note)+'" placeholder="Например, только задание 3 или объясни подробнее" autocomplete="off"></label><div class="row" style="gap:8px"><button type="button" class="btn primary" data-hs="solve">Решить ДЗ</button><button type="button" class="btn ghost" data-hs="clear">Очистить</button></div>':''))+
+    (HS.err?'<div class="banner"><span>'+esc(HS.err)+'</span></div>':'');
+  const H=S.hws||[];
+  const hist=H.length?'<section class="card"><div class="row" style="gap:8px"><h3 class="grow" style="font-size:16px">История решений · '+H.length+'</h3><button type="button" class="btn sm ghost" data-hs="hclear">Очистить</button></div><div class="stack" style="gap:8px;margin-top:10px">'+
+    H.map(e=>{const o=HS.open===e.id;return '<div class="li" style="flex-direction:column;align-items:stretch;gap:8px"><button type="button" data-hs="open" data-id="'+e.id+'" aria-expanded="'+o+'" style="display:flex;gap:10px;align-items:center;text-align:left;min-width:0;width:100%">'+
+      (e.thumb?'<img class="hsth" src="'+esc(e.thumb)+'" alt="">':'')+'<span class="grow" style="min-width:0"><b>'+esc(e.subj||'Домашка')+'</b><br><span class="muted" style="font-size:13px">'+hsWhen(e.ts)+' · заданий: '+e.items.length+'</span></span><span class="muted">'+(o?'▲':'▼')+'</span></button>'+
+      (o?hsBody(e)+'<div class="row" style="gap:8px"><button type="button" class="btn sm" data-hs="copy" data-id="'+e.id+'">Копировать</button><button type="button" class="btn sm ghost" data-hs="hdel" data-id="'+e.id+'">Удалить</button></div>':'')+'</div>'}).join('')+'</div></section>':'';
+  return '<section class="card"><div class="row"><h3 class="grow" style="font-size:16px">Решить по фото</h3></div><p class="muted" style="font-size:13px;margin:6px 0 0">Сфотографируй задание, и ИИ решит его по шагам. Он может ошибаться, поэтому ответ лучше проверить.</p><div class="stack" style="gap:10px;margin-top:10px">'+top+'</div></section>'+hist}
+document.addEventListener('change',async e=>{if(e.target.id!=='hs-file')return;
+  const fs=[...e.target.files];e.target.value='';
+  for(const f of fs){if(HS.files.length>=4){toast('Хватит четырёх фото за раз');break}
+    const t=await hsThumb(f);if(!t){toast('Не удалось открыть фото. Попробуй JPG или PNG');continue}
+    HS.files.push(f);HS.prev.push(t)}
+  HS.err='';render()});
+document.addEventListener('input',e=>{if(e.target.id==='hs-note')HS.note=e.target.value});
+async function hsSolve(){
+  if(HS.busy||!HS.files.length)return;
+  let sm=null;try{sm=scHasClaude()&&await window.claude.use('sample')}catch(x){}
+  if(!sm&&!aiCfg().key){HS.key=true;render();return}
+  HS.busy=true;HS.err='';render();
+  const files=HS.files.slice(),prev=HS.prev.slice(),note=HS.note.trim(),prompt=HSP+(note?' Комментарий студентки: '+note:'');
+  try{
+    let j;
+    if(sm)j=await sm.json(prompt,{images:files,cache:false});
+    else j=await callAI(prompt,await Promise.all(files.map(imgB64)));
+    const r=hsNorm(j);
+    if(!r.items.length)HS.err=r.note||'Не нашла на фото задание. Попробуй сфотографировать чётче.';
+    else{const en=Object.assign({id:uid(),ts:Date.now(),thumb:prev[0]||'',user:note},r);S.hws.unshift(en);S.hws=S.hws.slice(0,30);save();HS.open=en.id;HS.files=[];HS.prev=[];HS.note='';toast('Готово. Решение в истории ниже')}
+  }catch(err){
+    const c=err&&err.code;
+    if(c==='not_granted')HS.err='Без разрешения я не смогу прочитать фото.';
+    else if(c===400||c===401||c===403){HS.key=true;HS.err='Ключ не подошёл или фото не приняли. Проверь ключ.'}
+    else if(c==='network')HS.err='Нет связи с ИИ. Проверь интернет.';
+    else if(c==='img')HS.err='Не удалось открыть фото. Попробуй JPG или PNG.';
+    else if(c===429||c===503||c===500)HS.err='ИИ сейчас занят. Попробуй через минуту.';
+    else HS.err='Не получилось решить. Попробуй более чёткое фото.'}
+  HS.busy=false;render()}
+document.addEventListener('click',async e=>{const el=e.target.closest('[data-hs]');if(!el)return;const a=el.dataset.hs,id=el.dataset.id;
+  if(a==='rm'){const i=+el.dataset.i;HS.files.splice(i,1);HS.prev.splice(i,1);render()}
+  else if(a==='clear'){HS.files=[];HS.prev=[];HS.note='';HS.err='';render()}
+  else if(a==='key'){const k=($('#hs-key').value||'').trim();if(!k){toast('Вставь ключ');return}
+    try{localStorage.setItem(AIK,JSON.stringify({key:k,model:aiCfg().model||'gemini-flash-latest'}))}catch(x){toast('Не удалось сохранить ключ в браузере');return}
+    HS.key=false;HS.err='';render();toast('Ключ сохранён')}
+  else if(a==='solve')hsSolve();
+  else if(a==='open'){HS.open=HS.open===id?null:id;render()}
+  else if(a==='copy'){const en=S.hws.find(x=>x.id===id);if(!en)return;try{await navigator.clipboard.writeText(hsText(en));toast('Скопировано')}catch(x){toast('Не удалось скопировать')}}
+  else if(a==='hdel'){if(!confirm('Удалить это решение из истории?'))return;S.hws=S.hws.filter(x=>x.id!==id);save();render()}
+  else if(a==='hclear'){if(!confirm('Очистить всю историю решений?'))return;S.hws=[];HS.open=null;save();render()}
+});
 
 /* ---------- пары, голос, напоминания ---------- */
 function schBlocks(day){const c=S.sch,d=c.days[parseD(day).getDay()];if(!d||!d[0]||!d[1])return[];
