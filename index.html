@@ -1050,7 +1050,7 @@ function mgHTML(){
   const al=MG.tab==='alch';
   return `<section class="card" data-fold="mg" style="text-align:center"><div class="row" style="justify-content:space-between;flex-wrap:wrap"><div class="eyebrow">Игры на перетаскивание</div><div class="row" style="gap:6px"><button class="btn sm ${al?'primary':''}" data-mg="tab" data-v="alch">Алхимия</button><button class="btn sm ${al?'':'primary'}" data-mg="tab" data-v="merge">Слияние</button></div></div>${al?alHTML():mrHTML()}</section>`;
 }
-function mgPaint(){const el=$('#mg');if(el)el.innerHTML=mgHTML();if(MG.tab==='alch')alField();const o=$('#mrfs');if(o){o.innerHTML=mrFSHTML();mrFit()}}
+function mgPaint(){mrCheck();const el=$('#mg');if(el)el.innerHTML=mgHTML();if(MG.tab==='alch')alField();const o=$('#mrfs');if(o){o.innerHTML=mrFSHTML();mrFit()}const sh=$('#mrshop');if(sh)sh.firstElementChild.innerHTML=mrShopInner()}
 function alHTML(){
   const f=S.alch.found,tot=Object.keys(AL_EL).length;
   return `<p class="muted" style="margin:8px auto 10px;max-width:440px;font-size:13px">Соединяй разные элементы и открывай новые: перетащи один на другой. Нажми на элемент внизу, чтобы он появился на поле. Утащи элемент за край поля, чтобы убрать.</p>
@@ -1093,36 +1093,41 @@ function alDrop(src,eid,cx,cy,w,h){
 const mrLocked=i=>!!(S.merge&&S.merge.lock&&i>=20);
 function mrNewC(m){
   const used=(m.cust||[]).filter(Boolean).map(x=>x.name),pool=MR_GUESTS.filter(g=>!used.includes(g[1])),g=pool[Math.floor(Math.random()*pool.length)]||MR_GUESTS[0];
-  const c=Math.floor(Math.random()*MR_CH.length),mx=Math.min(MR_MAXL,Math.max(2,(m.best[c]||1)+1)),l=2+Math.floor(Math.random()*(mx-1));
-  return {a:g[0],name:g[1],c,l,r:3*l+2};
+  const op=MR_CH.map((x,i)=>i).filter(i=>mrCatOpen(m,i)),c=op[Math.floor(Math.random()*op.length)],mx=Math.min(MR_MAXL,Math.max(2,(m.best[c]||1)+1)),l=2+Math.floor(Math.random()*(mx-1));
+  const vip=(m.served||0)>=5&&Math.random()<.12,L=vip?Math.min(MR_MAXL,l+1):l;return {a:g[0],name:g[1],c,l:L,r:(3*L+2)*(vip?2:1),v:vip};
 }
 function mrState(){
   let m=S.merge;
   if(!m||m.v!==2||!Array.isArray(m.cells)){
     m=S.merge={v:2,cells:Array(24).fill(0),coins:0,merges:0,prog:0,goal:25,lock:true,pick:0,best:[1,1,1]};
-    for(let k=0;k<14;k++){const free=m.cells.map((x,i)=>x||i>=20?-1:i).filter(i=>i>=0);if(!free.length)break;m.cells[free[Math.floor(Math.random()*free.length)]]=Math.floor(Math.random()*MR_CH.length)*10+(Math.random()<.75?1:2)}
+    for(let k=0;k<14;k++){const free=m.cells.map((x,i)=>x||i>=20?-1:i).filter(i=>i>=0);if(!free.length)break;m.cells[free[Math.floor(Math.random()*free.length)]]=Math.floor(Math.random()*3)*10+(Math.random()<.75?1:2)}
   }
   while(m.best.length<MR_CH.length)m.best.push(1);
+  if(!m.up)m.up={chef:0,gold:0,auto:0};if(!m.decor)m.decor=[];if(m.wand===undefined){m.wand=0;m.pairs=0;m.lastAuto=Date.now()}
+  if(!m.ach){m.ach={};m.lvl=mrLevel(m);m.cmb=0;m.cmbMax=0;m.qdone=0;m.quests=['merge','serve','combo'].map(t=>mrQuestNew(t,0))}
   if(!m.cv){m.cv=1;m.prog=0;m.goal=10;m.served=0;m.cust=[];for(let k=0;k<3;k++)m.cust.push(mrNewC(m));save()}
+  while(m.cust.length<(m.slots||3))m.cust.push(mrNewC(m));
   return m;
 }
 function mrHTML(){
   const m=mrState();
   return `<p class="muted" style="margin:8px auto 12px;max-width:440px;font-size:13px">Подноси одинаковые блюда друг к другу, и они сольются в следующее. Готовое блюдо отдавай клиентам за монеты. Игра открывается на весь экран, чтобы всё было видно сразу.</p>
-  <div class="row" style="justify-content:center;gap:6px;margin-bottom:12px"><span class="chip">🪙 ${m.coins}</span><span class="chip">клиентов: ${m.served}</span><span class="chip">слияний: ${m.merges}</span></div>
+  <div class="row" style="justify-content:center;gap:6px;margin-bottom:12px"><span class="chip">🪙 ${m.coins}</span><span class="chip">клиентов: ${m.served}</span><span class="chip">слияний: ${m.merges}</span><span class="chip">⭐ уровень ${mrLevel(m)}</span></div>
   <button class="btn primary" style="min-width:200px;font-size:16px" data-mg="mrfs">Играть на весь экран</button>
+  <div style="margin-top:10px"><button class="btn" data-mg="shop">🛒 Магазин: улучшения и украшения</button></div>${m.decor.length?`<div style="margin-top:12px;font-size:26px" title="Украшения кафе">${m.decor.map(j=>MR_DECOR[j][0]).join(" ")}</div>`:""}
   <div style="margin-top:12px"><button class="btn sm ghost" data-mg="mrreset">Начать заново</button></div>`;
 }
 function mrFSHTML(){
   const m=mrState(),ch=MR_CH[m.pick],pr=Math.min(100,Math.round(m.prog/m.goal*100));
   const cell=(v,i)=>{const lk=mrLocked(i);return `<div class="mc ${v?'has':''} ${lk?'lock':''} ${MR_SEL===i?'sel':''}" data-mc="${i}" ${v?`aria-label="${MR_CH[Math.floor(v/10)].t[v%10-1]}"`:lk?'aria-label="Закрытая клетка"':''}>${lk?'🔒':v?MR_CH[Math.floor(v/10)].i[v%10-1]:''}</div>`};
-  const cu=(g,k)=>`<div class="cu ${m.cells.some(v=>v&&Math.floor(v/10)===g.c&&v%10===g.l)?'rdy':''}" data-mg="cu" data-k="${k}"><div class="ca">${g.a}</div><div class="cn">${esc(g.name)}</div><div class="cw">${MR_CH[g.c].i[g.l-1]}</div><div class="cr">🪙${g.r}</div></div>`;
-  return `<div class="mrfs-top"><span class="chip">🪙 ${m.coins}</span><span class="chip">клиентов: ${m.served}</span><div class="bar grow" style="height:10px;min-width:40px"><i style="width:${pr}%;background:var(--good)"></i></div><b style="font-size:12px;white-space:nowrap">${m.prog}/${m.goal}</b><button class="mrfs-x" data-mg="mrclose" aria-label="Закрыть игру">✕</button></div>
+  const cu=(g,k)=>`<div class="cu ${m.cells.some(v=>v&&Math.floor(v/10)===g.c&&v%10===g.l)?'rdy':''}" data-mg="cu" data-k="${k}"><div class="ca">${g.a}</div><div class="cn">${g.v?"👑 ":""}${esc(g.name)}</div><div class="cw">${MR_CH[g.c].i[g.l-1]}</div><div class="cr">🪙${g.r}</div></div>`;
+  return `<div class="mrfs-top"><span class="chip">🪙 ${m.coins}</span><span class="chip">⭐ ${mrLevel(m)}</span><div class="bar grow" style="height:10px;min-width:40px"><i style="width:${pr}%;background:var(--good)"></i></div><b style="font-size:12px;white-space:nowrap">${m.prog}/${m.goal}</b><button class="mrfs-x" data-mg="shop" aria-label="Магазин">🛒</button><button class="mrfs-x" data-mg="mrclose" aria-label="Закрыть игру">✕</button></div>
   <div class="cus">${m.cust.map(cu).join('')}</div>
   <div class="mrbw" id="mrbw"><div class="mrb">${m.cells.map(cell).join('')}</div></div>
   <div class="mrfs-bot">
-    <div class="mrpick">${MR_CH.map((c,k)=>`<button class="btn sm ${m.pick===k?'primary':''}" data-mg="pick" data-v="${k}">${c.i[0]} ${c.n}</button>`).join('')}</div>
+    <div class="mrpick">${MR_CH.map((c,k)=>`<button class="btn sm ${m.pick===k?'primary':''}" data-mg="pick" data-v="${k}">${mrCatOpen(m,k)?c.i[0]:'🔒'} ${c.n}${mrCatOpen(m,k)?'':' · ур.'+c.lv}</button>`).join('')}</div>
     <div class="mrchain" style="margin:0">${ch.i.map((e,k)=>`<span class="${m.best[m.pick]>k?'':'dim'}" title="${ch.t[k]}">${e}</span>`).join('<i>›</i>')}</div>
+    ${(m.wand||m.pairs)?`<div class="row" style="justify-content:center;gap:8px;flex-wrap:nowrap">${m.wand?`<button class="btn sm ${MR_WAND?"primary":""}" data-mg="usewand">🪄 Палочка ×${m.wand}</button>`:""}${m.pairs?`<button class="btn sm" data-mg="usepair">🔀 Слить пару ×${m.pairs}</button>`:""}</div>`:""}
     <div class="row" style="justify-content:center;gap:10px;flex-wrap:nowrap"><button class="btn primary" style="flex:1;max-width:240px" data-mg="spawn">Создать ${ch.i[0]}</button><div class="mtrash" id="mr-trash" aria-label="Корзина">🗑️</div></div>
   </div>`;
 }
@@ -1138,10 +1143,10 @@ function mrOpen(){
   o.innerHTML=mrFSHTML();mrFit();setTimeout(mrFit,60);
 }
 function mrClose(){
-  const o=$('#mrfs');if(o)o.remove();document.body.classList.remove('mrfs-open');document.body.style.overflow='';MR_SEL=-1;mgPaint();
+  const o=$('#mrfs');if(o)o.remove();document.body.classList.remove('mrfs-open');document.body.style.overflow='';MR_SEL=-1;MR_WAND=false;mgPaint();
 }
 window.addEventListener('resize',()=>{if($('#mrfs'))mrFit()});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('#mrfs'))mrClose()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){if($('#mrshop'))mrShopClose();else if($('#mrfs'))mrClose()}});
 function mrPaint(pop,big){
   mgPaint();
   if(pop!==undefined){const c=document.querySelector('.mc[data-mc="'+pop+'"]');if(c){c.classList.add('pop');if(big)confetti({target:c})}}
@@ -1150,8 +1155,8 @@ function mrServe(i,k){
   const m=mrState(),v=m.cells[i],g=m.cust[k];
   if(!v||!g){mgPaint();return false}
   if(Math.floor(v/10)===g.c&&v%10===g.l){
-    m.cells[i]=0;m.coins+=g.r;m.served++;m.prog++;
-    toast(g.a+' '+g.name+': спасибо! +'+g.r+' монет');
+    const pay=Math.round(g.r*mrMul(m))+m.decor.length,tip=Math.random()<.2?Math.round(pay*.5):0;m.cells[i]=0;m.coins+=pay+tip;m.served++;m.prog++;mrQuestEv(m,'serve',1);
+    toast(g.a+' '+g.name+': спасибо! +'+pay+' монет'+(tip?', чаевые +'+tip:''));
     m.cust[k]=mrNewC(m);
     let big=false;
     if(m.prog>=m.goal){m.prog=0;m.coins+=40;big=true;toast('Бонус за клиентов: +40 монет!')}
@@ -1167,7 +1172,7 @@ function mrMove(a,b){
   if(!w){m.cells[b]=v;m.cells[a]=0;save();mrPaint();return}
   if(v===w&&v%10<MR_MAXL){
     const c=Math.floor(v/10),l=v%10+1;
-    m.cells[b]=v+1;m.cells[a]=0;m.merges++;m.coins+=l;
+    m.cells[b]=v+1;m.cells[a]=0;m.merges++;m.coins+=Math.round(l*mrMul(m));mrMergeEv(m);
     let big=false;
     if(l>m.best[c]){m.best[c]=l;toast('Новое блюдо: '+MR_CH[c].i[l-1]+' '+MR_CH[c].t[l-1]);big=l>=5}
     save();mrPaint(b,big);return;
@@ -1220,6 +1225,7 @@ document.addEventListener('pointerup',e=>{
   const i=+m.el.dataset.mc,mm=mrState();
   if(!m.moved){
     if(mrLocked(i)){if(mm.coins>=MR_UNLOCK){mm.coins-=MR_UNLOCK;mm.lock=false;save();mgPaint();toast('Новый ряд открыт!')}else toast('Чтобы открыть ряд, нужно '+MR_UNLOCK+' монет. Сейчас: '+mm.coins);return}
+    if(MR_WAND){mrWand(i);return}
     if(MR_SEL<0){if(mm.cells[i]){MR_SEL=i;mgPaint()}return}
     const from=MR_SEL;MR_SEL=-1;if(from===i){mgPaint();return}mrMove(from,i);return;
   }
@@ -1244,14 +1250,21 @@ document.addEventListener('click',e=>{
   if(a==='cu'){const k=+el.dataset.k;if(MR_SEL>=0){const i=MR_SEL;MR_SEL=-1;mrServe(i,k)}else toast('Выбери готовое блюдо на поле и нажми на клиента. Или перетащи блюдо к нему');return}
   if(a==='mrfs'){mrOpen();return}
   if(a==='mrclose'){mrClose();return}
-  if(a==='pick'){const m=mrState();m.pick=+el.dataset.v;save();mgPaint();return}
+  if(a==='shop'){mrShopOpen();return}
+  if(a==='shopx'){if(e.target===el)mrShopClose();return}
+  if(a==='shopc'){mrShopClose();return}
+  if(a==='mtab'){MRTAB=el.dataset.v;mgPaint();return}
+  if(a==='buy'){mrBuy(el.dataset.k);return}
+  if(a==='usewand'){MR_WAND=!MR_WAND;MR_SEL=-1;if(MR_WAND)toast('Нажми на блюдо, которое хочешь улучшить');mgPaint();return}
+  if(a==='usepair'){mrPair();return}
+  if(a==='pick'){const m=mrState(),k=+el.dataset.v;if(!mrCatOpen(m,k)){toast('Эта категория откроется на уровне кафе '+MR_CH[k].lv+'. Обслуживай клиентов');return}m.pick=k;save();mgPaint();return}
   if(a==='spawn'){
     const m=mrState(),free=m.cells.map((v,i)=>v||mrLocked(i)?-1:i).filter(i=>i>=0);
     if(!free.length){toast('Поле заполнено. Слей предметы, убери лишнее или открой новый ряд');return}
-    const l=Math.random()<.8?1:2,i=free[Math.floor(Math.random()*free.length)];
+    const l=Math.random()<[.2,.35,.5,.7][m.up.chef]?2:1,i=free[Math.floor(Math.random()*free.length)];
     m.cells[i]=m.pick*10+l;if(l>m.best[m.pick])m.best[m.pick]=l;save();mrPaint(i);return;
   }
-  if(a==='mrreset'){if(!confirm('Начать заново? Монеты, клиенты и поле сбросятся.'))return;S.merge=null;MR_SEL=-1;save();mgPaint()}
+  if(a==='mrreset'){if(!confirm('Начать заново? Монеты, клиенты, поле и покупки сбросятся.'))return;S.merge=null;MR_SEL=-1;save();mgPaint()}
 });
 /* ---------- сворачивание карточек ---------- */
 function foldify(){
@@ -2029,6 +2042,123 @@ document.addEventListener('click',async e=>{
     case 'edsave':if(m){m.t=($('#te-t').value||'').trim()||m.t;m.s=$('#te-s').value;m.n=($('#te-n').value||'').trim();save();closeModal();render()}break;
   }
 });
+
+/* ---------- магазин для игры «Слияние» ---------- */
+var MR_WAND=false;
+const MR_DECOR=[['🪴','Растение',40],['🖼️','Картина',60],['💡','Лампа',80],['🎀','Вывеска с бантом',100],['🕰️','Часы',120],['🎻','Скрипач',200],['⛲','Фонтан',300],['🏆','Кубок',500]];
+const MR_UP={chef:['👨‍🍳','Шеф-повар','чаще появляются блюда 2 уровня',[80,160,300]],gold:['💰','Золотая касса','+25% монет за слияния и заказы за каждый уровень',[70,140,250]],auto:['🤖','Помощник-повар','сам кладёт блюдо на поле: раз в 60, 40 или 25 секунд',[100,200,350]]};
+const MR_AUTO=[0,60,40,25];
+const mrMul=m=>1+.25*((m.up&&m.up.gold)||0);
+function mrShopBody(){
+  const m=mrState();
+  const btn=(k,c)=>`<button class="btn sm ${m.coins>=c?'primary':'ghost'}" data-mg="buy" data-k="${k}" style="flex:none;white-space:nowrap">🪙 ${c}</button>`;
+  const row=(e,n,d,b)=>`<div class="li" style="align-items:flex-start"><span style="display:flex;gap:10px;align-items:flex-start;min-width:0"><span style="font-size:26px;line-height:1">${e}</span><span><b>${n}</b><br><span class="muted" style="font-size:12px">${d}</span></span></span>${b}</div>`;
+  const max='<span class="chip" style="color:var(--good)">максимум</span>';
+  let h='';
+  h+='<div class="eyebrow">Улучшения</div>';
+  Object.keys(MR_UP).forEach(k=>{const u=MR_UP[k],lv=m.up[k];h+=row(u[0],u[1]+' · '+lv+'/3',u[2],lv>=3?max:btn(k,u[3][lv]))});
+  if(m.cust.length<4)h+=row('🪑','Четвёртый столик','ещё один клиент одновременно',btn('slot',150));
+  if(m.lock)h+=row('🔓','Новый ряд клеток','больше места на поле',btn('row',MR_UNLOCK));
+  h+='<div class="eyebrow" style="margin-top:6px">Расходники</div>';
+  h+=row('🪄','Волшебная палочка'+(m.wand?' · есть '+m.wand:''),'поднимает любое блюдо на уровень выше',btn('wand',35));
+  h+=row('🔀','Слить пару'+(m.pairs?' · есть '+m.pairs:''),'сама находит две одинаковые и сливает',btn('pairs',25));
+  h+=row('🧺','Корзина продуктов','сразу 3 блюда 2 уровня из выбранной категории',btn('basket',45));
+  h+='<div class="eyebrow" style="margin-top:6px">Украшения кафе</div><div class="muted" style="font-size:12px">Каждое украшение даёт +1 монету с каждого заказа. Навсегда.</div>';
+  MR_DECOR.forEach((d,j)=>{h+=row(d[0],d[1],'',m.decor.includes(j)?'<span class="chip" style="color:var(--good)">куплено</span>':btn('decor'+j,d[2]))});
+  return h;
+}
+function mrShopOpen(){let o=$('#mrshop');if(!o){o=document.createElement('div');o.id='mrshop';o.className='scrim';o.dataset.mg='shopx';o.innerHTML='<div class="modal" role="dialog" aria-modal="true" aria-label="Магазин"></div>';document.body.appendChild(o)}o.firstElementChild.innerHTML=mrShopInner()}
+function mrShopClose(){const o=$('#mrshop');if(o)o.remove()}
+function mrBuy(k){
+  const m=mrState();
+  const pay=c=>{if(m.coins<c){toast('Не хватает монет: нужно '+c+', у тебя '+m.coins);return false}m.coins-=c;return true};
+  const free=()=>m.cells.map((v,i)=>v||mrLocked(i)?-1:i).filter(i=>i>=0);
+  if(MR_UP[k]){const lv=m.up[k];if(lv>=3)return;if(!pay(MR_UP[k][3][lv]))return;m.up[k]++;if(k==='auto')m.lastAuto=Date.now();toast(MR_UP[k][1]+': уровень '+m.up[k])}
+  else if(k==='slot'){if(m.cust.length>=4)return;if(!pay(150))return;m.slots=4;m.cust.push(mrNewC(m));toast('Новый столик открыт')}
+  else if(k==='row'){if(!m.lock)return;if(!pay(MR_UNLOCK))return;m.lock=false;toast('Новый ряд открыт!')}
+  else if(k==='wand'){if(!pay(35))return;m.wand++;toast('Палочка в запасе: '+m.wand)}
+  else if(k==='pairs'){if(!pay(25))return;m.pairs++;toast('«Слить пару» в запасе: '+m.pairs)}
+  else if(k==='basket'){const f=free();if(!f.length){toast('Нет места на поле. Освободи клетки');return}if(!pay(45))return;
+    shuf(f).slice(0,3).forEach(i=>{m.cells[i]=m.pick*10+2});if(m.best[m.pick]<2)m.best[m.pick]=2;toast('Корзина разложена на поле')}
+  else if(k.indexOf('decor')===0){const j=+k.slice(5),d=MR_DECOR[j];if(!d||m.decor.includes(j))return;if(!pay(d[2]))return;m.decor.push(j);toast('Куплено: '+d[0]+' '+d[1]+'. Теперь +'+m.decor.length+' монет с заказа');
+    const sh=$('#mrshop');if(sh)confetti({target:sh.querySelector('.modal')})}
+  save();mgPaint();
+}
+function mrWand(i){
+  const m=mrState(),v=m.cells[i];
+  if(!v){toast('Палочка работает на блюде. Нажми на любое');return}
+  if(v%10>=MR_MAXL){toast('Это блюдо уже высшего уровня');return}
+  m.wand--;m.cells[i]=v+1;const c=Math.floor(v/10),l=v%10+1;
+  if(l>m.best[c]){m.best[c]=l;toast('Новое блюдо: '+MR_CH[c].i[l-1]+' '+MR_CH[c].t[l-1])}
+  if(!m.wand)MR_WAND=false;save();mrPaint(i,true);
+}
+function mrPair(){
+  const m=mrState(),seen={};
+  for(let i=0;i<m.cells.length;i++){const v=m.cells[i];if(!v||mrLocked(i)||v%10>=MR_MAXL)continue;
+    if(seen[v]!==undefined){m.pairs--;save();mrMove(seen[v],i);return}seen[v]=i}
+  toast('Одинаковых пар пока нет. Создай ещё блюд');
+}
+setInterval(()=>{
+  const m=S.merge;if(!m||m.v!==2||!m.up||!m.up.auto||MD)return;
+  const iv=MR_AUTO[m.up.auto]*1e3,now=Date.now();let n=Math.min(3,Math.floor((now-(m.lastAuto||now))/iv));if(n<1)return;
+  m.lastAuto=now;let k=0;
+  while(n-->0){const f=m.cells.map((v,i)=>v||mrLocked(i)?-1:i).filter(i=>i>=0);if(!f.length)break;m.cells[f[Math.floor(Math.random()*f.length)]]=m.pick*10+1;k++}
+  if(k){save();mgPaint()}
+},1000);
+
+/* ---------- расширение игры: уровни кафе, новые блюда, задания, награды, комбо ---------- */
+MR_CH.push(
+ {n:'Азия',lv:2,i:['🍚','🍙','🍢','🍣','🍤','🍜'],t:['Рис','Онигири','Оден','Суши','Темпура','Рамен']},
+ {n:'Мексика',lv:3,i:['🌽','🥑','🌮','🌯','🥙','🥘'],t:['Кукуруза','Авокадо','Тако','Буррито','Шаурма','Паэлья']},
+ {n:'Мясное',lv:4,i:['🥓','🍗','🍖','🥩','🍢','🍛'],t:['Бекон','Куриная ножка','Рёбрышки','Стейк','Шашлык','Карри']},
+ {n:'Праздник',lv:5,i:['🍇','🧀','🥂','🍾','🎊','🎉'],t:['Виноград','Сыр','Бокалы','Игристое','Конфетти','Праздничный стол']}
+);
+const MR_LV=[0,3,8,15,25,40,60,90,130,180];
+const mrLevel=m=>MR_LV.filter(x=>x<=((m&&m.served)||0)).length;
+const mrCatOpen=(m,c)=>(MR_CH[c].lv||1)<=mrLevel(m);
+var MRTAB='shop';
+function mrQuestNew(t,k){const T={merge:{n:10+6*k,r:20+10*k},serve:{n:Math.min(12,3+k),r:25+10*k},combo:{n:Math.min(7,3+k),r:30+10*k}}[t];return {t,k,p:0,n:T.n,r:T.r}}
+function mrQuestEv(m,t,v){(m.quests||[]).forEach(q=>{if(q.t!==t)return;q.p=t==='combo'?Math.max(q.p,v):q.p+v;
+  if(q.p>=q.n){m.coins+=q.r;m.qdone=(m.qdone||0)+1;toast('✅ Задание выполнено: +'+q.r+' монет');Object.assign(q,mrQuestNew(t,(q.k||0)+1))}})}
+function mrMergeEv(m){const t=Date.now();m.cmb=(t-(m.cmbT||0)<4000)?(m.cmb||0)+1:1;m.cmbT=t;m.cmbMax=Math.max(m.cmbMax||0,m.cmb);
+  mrQuestEv(m,'merge',1);
+  if(m.cmb>=2){const b=Math.min(10,m.cmb-1);m.coins+=b;toast('Комбо ×'+m.cmb+': +'+b+' монет');mrQuestEv(m,'combo',m.cmb)}}
+const MR_ACH=[
+ ['first','🥄','Первое слияние','Слей два блюда',m=>m.merges>=1,10],
+ ['m50','🍳','50 слияний','Слей блюда 50 раз',m=>m.merges>=50,40],
+ ['m200','👩‍🍳','200 слияний','Слей блюда 200 раз',m=>m.merges>=200,120],
+ ['c10','🛎️','10 клиентов','Обслужи 10 клиентов',m=>m.served>=10,30],
+ ['c50','🍽️','50 клиентов','Обслужи 50 клиентов',m=>m.served>=50,120],
+ ['d5','🌟','Блюдо 5 уровня','Создай блюдо 5 уровня',m=>Math.max.apply(null,m.best)>=5,50],
+ ['d6','🏅','Шедевр','Создай блюдо 6 уровня',m=>Math.max.apply(null,m.best)>=6,100],
+ ['cmb5','🔥','Комбо ×5','Пять слияний подряд',m=>(m.cmbMax||0)>=5,60],
+ ['bot','🤖','Помощник нанят','Купи помощника-повара',m=>m.up.auto>=1,20],
+ ['dec3','🪴','Уютное кафе','Купи 3 украшения',m=>m.decor.length>=3,50],
+ ['dec8','🏆','Всё украшено','Купи все 8 украшений',m=>m.decor.length>=8,200],
+ ['lv5','⭐','Кафе 5 уровня','Дорасти до 5 уровня',m=>mrLevel(m)>=5,100],
+ ['lv10','👑','Звёздное кафе','Дорасти до 10 уровня',m=>mrLevel(m)>=10,300]
+];
+function mrCheck(){const m=S.merge;if(!m||m.v!==2||!m.ach||!m.up)return;let ch=false;
+  const lv=mrLevel(m);
+  if(lv>(m.lvl||1)){const b=40*lv,nw=MR_CH.filter(c=>c.lv===lv).map(c=>c.n);m.coins+=b;m.lvl=lv;ch=true;toast('⭐ Кафе: уровень '+lv+'! +'+b+' монет'+(nw.length?'. Открыто: '+nw.join(', '):''))}
+  MR_ACH.forEach(a=>{if(!m.ach[a[0]]&&a[4](m)){m.ach[a[0]]=1;m.coins+=a[5];ch=true;toast('🏅 '+a[2]+': +'+a[5]+' монет')}});
+  if(ch)save()}
+function mrQuestsBody(m){
+  return '<div class="muted" style="font-size:12px">Задания обновляются сами, награда приходит сразу. Выполнено всего: '+(m.qdone||0)+'</div>'+m.quests.map(q=>{
+    const txt=q.t==='merge'?'Слей блюда: '+q.n+' раз':q.t==='serve'?'Обслужи клиентов: '+q.n:'Комбо ×'+q.n+' (слияния подряд, пауза до 4 секунд)';
+    return `<div class="li" style="display:block"><div class="row" style="justify-content:space-between;flex-wrap:nowrap"><b>${txt}</b><span class="chip">🪙 ${q.r}</span></div><div class="bar" style="height:10px;margin-top:8px"><i style="width:${Math.min(100,Math.round(q.p/q.n*100))}%;background:var(--accent)"></i></div><div class="muted" style="font-size:12px;margin-top:4px">${q.p} из ${q.n}</div></div>`}).join('')}
+function mrAchBody(m){
+  const d=MR_ACH.filter(a=>m.ach[a[0]]).length;
+  return `<div class="muted" style="font-size:12px">Получено ${d} из ${MR_ACH.length}. Награда приходит сама.</div>`+MR_ACH.map(a=>{const ok=m.ach[a[0]];
+    return `<div class="li" style="opacity:${ok?1:.65}"><span style="display:flex;gap:10px;align-items:center"><span style="font-size:24px">${ok?a[1]:'🔒'}</span><span><b>${a[2]}</b><br><span class="muted" style="font-size:12px">${a[3]}</span></span></span><span class="chip">${ok?'✓':'🪙 '+a[5]}</span></div>`}).join('')}
+function mrShopInner(){
+  const m=mrState(),lv=mrLevel(m),nx=MR_LV[lv],tabs=[['shop','Магазин'],['quests','Задания'],['ach','Награды']];
+  return `<div class="row" style="justify-content:space-between"><h3 style="font-size:18px">Моё кафе</h3><span class="chip">🪙 ${m.coins}</span></div>
+  <div class="muted" style="font-size:13px">⭐ Уровень ${lv}${nx!==undefined?'. До следующего: ещё '+(nx-m.served)+' клиентов':'. Максимальный'}</div>
+  <div class="row" style="gap:6px">${tabs.map(t=>`<button class="btn sm ${MRTAB===t[0]?'primary':''}" data-mg="mtab" data-v="${t[0]}">${t[1]}</button>`).join('')}</div>
+  ${MRTAB==='quests'?mrQuestsBody(m):MRTAB==='ach'?mrAchBody(m):mrShopBody()}
+  <button class="btn" data-mg="shopc">Закрыть</button>`;
+}
 render();
 if(!bat(todayS())&&S.batSkip!==todayS())openBat();
 petTick();setInterval(petTick,1000);
