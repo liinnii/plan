@@ -2845,7 +2845,7 @@ document.addEventListener('click',e=>{
 
 /* ---------- раздел «Решения»: архив ответов на домашку ---------- */
 if(!S.sols)S.sols=[];
-const SL={f:'all',open:null,ns:'',nt:'',nm:'',h:'',ai:false,k:''};
+const SL={f:'all',open:null,ns:'',nt:'',nm:'',h:'',ai:false,k:'',files:[]};
 function solSave(h){
   if(!h||!h.sol||!h.sol.items||!h.sol.items.length)return;
   const copy=JSON.parse(JSON.stringify({note:h.sol.note||'',items:h.sol.items}));
@@ -2873,6 +2873,7 @@ function solBlocks(list){const B=[];
       e.sol.items.forEach((x,i)=>{B.push({k:'h2',t:(i+1)+'. '+x.task});x.steps.forEach((st,k)=>B.push({k:'p',t:(k+1)+') '+st}));if(x.answer)B.push({k:'a',l:x.my?'Мой ответ: ':'Ответ: ',t:x.answer})});
       if(e.sol.note)B.push({k:'m',t:e.sol.note})}
     if(e.mine&&e.mine.trim()){B.push({k:'h2',t:'Мои ответы'});B.push({k:'p',t:e.mine.trim()})}
+    if(e.files&&e.files.length)B.push({k:'m',t:'Прикреплённые файлы: '+e.files.map(f=>f.name).join(', ')});
   });return B}
 function solHtml(B,title){
   const h=B.map(b=>b.k==='h1'?'<h1'+(b.pb?' style="page-break-before:always"':'')+'>'+esc(b.t)+'</h1>':b.k==='h2'?'<h2>'+esc(b.t)+'</h2>':b.k==='m'?'<p class="m">'+esc(b.t)+'</p>':b.k==='pb'?'<p><b>'+esc(b.t)+'</b></p>':b.k==='a'?'<p class="a"><b>'+esc(b.l)+'</b>'+esc(b.t)+'</p>':'<p>'+esc(b.t)+'</p>').join('\n');
@@ -2917,6 +2918,19 @@ function solExport(list,fmt){
   if(fmt==='html'){solDl(new Blob([solHtml(B,title)],{type:'text/html'}),base+'.html');toast('HTML сохранён')}
   else if(fmt==='docx'){try{solDl(solDocx(B),base+'.docx');toast('Word сохранён')}catch(x){toast('Не получилось собрать Word. Скачай HTML')}}
   else{solPrint(solHtml(B,title));toast('В окне печати выбери «Сохранить как PDF»')}}
+/* вложения к ответам: Word, PDF, HTML (файлы лежат в IndexedDB, в записи только описание) */
+const SF_OK=/\.(docx?|pdf|html?)$/i,SF_MAX=15*1024*1024,SF_ACC='.doc,.docx,.pdf,.html,.htm';
+const fSize=n=>n<1048576?Math.max(1,Math.round(n/1024))+' КБ':(n/1048576).toFixed(1)+' МБ';
+function solPick(list){const out=[];let bad=0;Array.from(list||[]).forEach(f=>{if(!SF_OK.test(f.name)||f.size>SF_MAX){bad++;return}out.push({id:uid(),name:f.name.slice(0,120),type:f.type||'',size:f.size,blob:f})});if(bad)toast('Подходят Word, PDF и HTML до 15 МБ');return out}
+async function solSaveFiles(en,recs){if(!recs.length)return;const key='sf:'+en.id,cur=await phGet(key),ok=await phPut(key,cur.concat(recs));
+  en.files=(en.files||[]).concat(recs.map(r=>({id:r.id,name:r.name,type:r.type,size:r.size})));if(!ok)toast('Файлы сохранены только до закрытия страницы');save()}
+async function solOpenFile(en,fid){const arr=await phGet('sf:'+en.id),r=arr.find(y=>y.id===fid);if(!r){toast('Файл не найден');return}
+  if(/\.pdf$/i.test(r.name)){const u=URL.createObjectURL(new Blob([r.blob],{type:'application/pdf'}));if(!window.open(u,'_blank'))solDl(r.blob,r.name);setTimeout(()=>URL.revokeObjectURL(u),60000)}else solDl(r.blob,r.name)}
+async function solRmFile(en,fid){const key='sf:'+en.id,arr=(await phGet(key)).filter(y=>y.id!==fid);await phPut(key,arr);en.files=(en.files||[]).filter(y=>y.id!==fid);save()}
+function solAttachCtl(){return '<div><label class="btn sm" style="cursor:pointer">📎 Прикрепить Word, PDF, HTML<input type="file" id="sl-f" multiple accept="'+SF_ACC+'" hidden></label></div>'+
+  (SL.files.length?'<div class="row" style="gap:6px;flex-wrap:wrap">'+SL.files.map((f,i)=>'<span class="chip" style="white-space:normal">📎 '+esc(f.name)+' · '+fSize(f.size)+' <button type="button" class="btn sm ghost" data-sl="pfdel" data-i="'+i+'" aria-label="Убрать файл">✕</button></span>').join('')+'</div>':'')}
+function solCardFiles(e){return '<div class="stack" style="gap:6px">'+(e.files||[]).map(f=>'<div class="row" style="gap:8px"><button type="button" class="btn sm grow" style="text-align:left;white-space:normal" data-sl="fopen" data-id="'+e.id+'" data-fid="'+f.id+'">📎 '+esc(f.name)+' · '+fSize(f.size)+'</button><button type="button" class="btn sm ghost" data-sl="frm" data-id="'+e.id+'" data-fid="'+f.id+'" aria-label="Убрать файл">✕</button></div>').join('')+
+  '<div><label class="btn sm" style="cursor:pointer">📎 Прикрепить файл<input type="file" multiple accept="'+SF_ACC+'" data-solfile="'+e.id+'" hidden></label></div></div>'}
 function solFiltered(){return S.sols.slice().sort((a,b)=>b.ts-a.ts).filter(x=>SL.f==='all'||x.subj===SL.f)}
 function solTasks(h){const it=h.sol&&h.sol.items?h.sol.items.map(x=>x.task).filter(Boolean):[];
   if(it.length)return it.map(t=>t.slice(0,200));
@@ -2938,7 +2952,7 @@ function vSol(){
   (hs?'<div class="banner" style="margin:0"><span><b>'+esc(hs.subj)+'</b>'+(hs.title?'<br>'+esc(hs.title):'')+'<br><span class="muted" style="font-size:13px">срок '+shortDate(hs.due)+(ex?' · в решениях уже есть, ответ добавится к нему':'')+'</span></span></div>'+solTaskSel(hs)+
     (hs.sol&&hs.sol.items&&hs.sol.items.length?'<label class="li" style="cursor:pointer;flex-direction:row;font-size:14px;color:var(--ink);font-weight:500"><span>Добавить решение ИИ (заданий: '+hs.sol.items.length+')</span><input type="checkbox" id="sl-ai" style="width:22px;height:22px;flex:none"'+(SL.ai?' checked':'')+'></label>':'')
   :'<label>Предмет<input type="text" id="sl-s" list="sl-subjs" autocomplete="off" placeholder="Например, Гражданское право" value="'+esc(SL.ns)+'"></label><datalist id="sl-subjs">'+hwSubjects().map(x=>'<option value="'+esc(x)+'">').join('')+'</datalist><label>Задание<input type="text" id="sl-t" autocomplete="off" placeholder="Что задавали" value="'+esc(SL.nt)+'"></label>')+
-  '<label>Мой ответ<textarea id="sl-m" rows="5" placeholder="Мой ответ, решение, конспект…">'+esc(SL.nm)+'</textarea></label>'})()+
+  '<label>Мой ответ<textarea id="sl-m" rows="5" placeholder="Мой ответ, решение, конспект…">'+esc(SL.nm)+'</textarea></label>'+solAttachCtl()})()+
   '<button type="button" class="btn primary" data-sl="add">Сохранить</button></div></section>'+
   (subs.length?'<div class="cats">'+'<button data-sl="filt" data-v="all" aria-pressed="'+(SL.f==='all')+'">Все · '+all.length+'</button>'+subs.map(x=>'<button data-sl="filt" data-v="'+esc(x)+'" aria-pressed="'+(SL.f===x)+'">'+esc(x)+'</button>').join('')+'</div>':'')+
   (L.length?'<section class="card"><div class="eyebrow">Скачать всё ('+L.length+')</div><div class="row" style="gap:8px;margin-top:10px"><button type="button" class="btn sm primary" data-sl="exp" data-f="pdf" data-id="all">PDF</button><button type="button" class="btn sm primary" data-sl="exp" data-f="docx" data-id="all">Word</button><button type="button" class="btn sm primary" data-sl="exp" data-f="html" data-id="all">HTML</button></div></section>':'')+
@@ -2948,14 +2962,16 @@ function vSol(){
     (e.th&&e.th.length?'<div class="row" style="gap:10px;flex-wrap:wrap">'+e.th.map((p,k)=>'<img class="hsth" src="'+esc(p)+'" alt="Фото '+(k+1)+'">').join('')+'</div>':'')+
     (e.sol?'<div><button type="button" class="btn sm" data-sl="open" data-id="'+e.id+'" aria-expanded="'+o+'">'+(o?'Скрыть решение':'Показать решение · заданий: '+n)+'</button></div>':'')+
     (o&&e.sol?hsBody(e.sol):'')+
-    '<label>Мои ответы<textarea data-solmine="'+e.id+'" rows="4" placeholder="Допиши или поправь свой ответ">'+esc(e.mine||'')+'</textarea></label>'+
+    '<label>Мои ответы<textarea data-solmine="'+e.id+'" rows="4" placeholder="Допиши или поправь свой ответ">'+esc(e.mine||'')+'</textarea></label>'+solCardFiles(e)+
     '<div class="row" style="gap:8px"><button type="button" class="btn sm" data-sl="copy" data-id="'+e.id+'">Копировать</button><button type="button" class="btn sm" data-sl="exp" data-f="pdf" data-id="'+e.id+'">PDF</button><button type="button" class="btn sm" data-sl="exp" data-f="docx" data-id="'+e.id+'">Word</button><button type="button" class="btn sm" data-sl="exp" data-f="html" data-id="'+e.id+'">HTML</button><button type="button" class="btn sm ghost" data-sl="del" data-id="'+e.id+'">Удалить</button></div></section>'}).join('')
   :'<section class="card"><div class="empty">Пока пусто. Реши домашку в разделе «Домашка» или запиши свой ответ выше.</div></section>')+'</div>';
 }
 document.addEventListener('input',e=>{const t=e.target,i=t.id;
   if(i==='sl-s')SL.ns=t.value;else if(i==='sl-t')SL.nt=t.value;else if(i==='sl-m')SL.nm=t.value;
   else if(t.dataset&&t.dataset.solmine){const x=S.sols.find(y=>y.id===t.dataset.solmine);if(x)x.mine=t.value}});
-document.addEventListener('change',e=>{const t=e.target;if(t.dataset&&t.dataset.solmine){save();toast('Сохранено')}else if(t.id==='sl-h'){SL.h=t.value;SL.ai=false;SL.k='';render()}else if(t.id==='sl-k'){SL.k=t.value;render()}else if(t.id==='sl-ai')SL.ai=t.checked});
+document.addEventListener('change',e=>{const t=e.target;if(t.dataset&&t.dataset.solmine){save();toast('Сохранено')}else if(t.id==='sl-h'){SL.h=t.value;SL.ai=false;SL.k='';render()}else if(t.id==='sl-k'){SL.k=t.value;render()}else if(t.id==='sl-ai')SL.ai=t.checked
+  else if(t.id==='sl-f'){SL.files=SL.files.concat(solPick(t.files)).slice(0,10);t.value='';render()}
+  else if(t.dataset&&t.dataset.solfile){const en=S.sols.find(y=>y.id===t.dataset.solfile),recs=solPick(t.files).slice(0,10);t.value='';if(en&&recs.length)solSaveFiles(en,recs).then(()=>{render();toast('Файл прикреплён')})}});
 document.addEventListener('click',e=>{const el=e.target.closest('[data-sl]');if(!el)return;const a=el.dataset.sl,id=el.dataset.id,x=id&&S.sols.find(y=>y.id===id);
   if(a==='pick'||a==='pickall'){const h=S.hw.find(y=>y.id===id);if(!h||!h.sol)return;const its=h.sol.items;
     if(a==='pick'){const it=its[+el.dataset.i];if(!it)return;const en=solEntry(h),k=en.sol.items.findIndex(y=>solSame(y,it));
@@ -2967,20 +2983,23 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-sl]');if(
   else if(a==='open'){SL.open=SL.open===id?null:id;render()}
   else if(a==='exp'){solExport(id==='all'?solFiltered():(x?[x]:[]),el.dataset.f)}
   else if(a==='add'&&SL.h){const h=S.hw.find(y=>y.id===SL.h),m=SL.nm.trim();if(!h)return;
-    if(!m&&!(SL.ai&&h.sol&&h.sol.items&&h.sol.items.length)){toast('Напиши свой ответ или отметь решение ИИ');const f=$('#sl-m');if(f)f.focus();return}
+    if(!m&&!SL.files.length&&!(SL.ai&&h.sol&&h.sol.items&&h.sol.items.length)){toast('Напиши ответ, прикрепи файл или отметь решение ИИ');const f=$('#sl-m');if(f)f.focus();return}
     const en=S.sols.find(y=>y.hwId===h.id)||(()=>{const n={id:uid(),hwId:h.id,subj:h.subj||'Без предмета',title:h.title||'',due:h.due||'',ts:Date.now(),sol:null,mine:'',th:(h.th||[]).slice(0,2)};S.sols.unshift(n);return n})();
     if(SL.ai&&h.sol&&h.sol.items){if(!en.sol)en.sol={note:'',items:[]};h.sol.items.forEach(it=>{if(!en.sol.items.some(y=>solSame(y,it)))en.sol.items.push(JSON.parse(JSON.stringify(it)))})}
     const task=SL.k==='x'?SL.nt.trim().slice(0,200):SL.k!==''?(solTasks(h)[+SL.k]||''):'';
     if(m&&task){if(!en.sol)en.sol={note:'',items:[]};const my=en.sol.items.find(y=>y.my&&y.task===task);
       if(my)my.answer=(my.answer?my.answer+'\n\n':'')+m.slice(0,15000);else en.sol.items.push({task,steps:[],answer:m.slice(0,15000),my:true})}
     else if(m)en.mine=((en.mine||'').trim()?en.mine.trim()+'\n\n':'')+m.slice(0,20000);
-    en.ts=Date.now();SL.nm='';SL.ai=false;SL.k='';SL.nt='';SL.f='all';SL.open=null;save();render();toast('Ответ прикреплён к домашке «'+h.subj+'»')}
+    en.ts=Date.now();SL.nm='';SL.ai=false;SL.k='';SL.nt='';SL.f='all';SL.open=null;const pf=SL.files;SL.files=[];save();render();toast('Ответ прикреплён к домашке «'+h.subj+'»');if(pf.length)solSaveFiles(en,pf).then(()=>render())}
   else if(a==='add'){const s=SL.ns.trim().slice(0,60),t=SL.nt.trim().slice(0,200),m=SL.nm.trim();
-    if(!m){toast('Напиши свой ответ');const f=$('#sl-m');if(f)f.focus();return}
-    S.sols.unshift({id:uid(),hwId:null,subj:s||'Без предмета',title:t,due:'',ts:Date.now(),sol:null,mine:m.slice(0,20000),th:[]});
-    SL.ns=SL.nt=SL.nm='';save();render();toast('Сохранила в «Решения»')}
+    if(!m&&!SL.files.length){toast('Напиши ответ или прикрепи файл');const f=$('#sl-m');if(f)f.focus();return}
+    const ne={id:uid(),hwId:null,subj:s||'Без предмета',title:t,due:'',ts:Date.now(),sol:null,mine:m.slice(0,20000),th:[]};S.sols.unshift(ne);
+    const pf=SL.files;SL.files=[];SL.ns=SL.nt=SL.nm='';save();render();toast('Сохранила в «Решения»');if(pf.length)solSaveFiles(ne,pf).then(()=>render())}
+  else if(a==='pfdel'){SL.files.splice(+el.dataset.i,1);render()}
+  else if(a==='fopen'&&x){solOpenFile(x,el.dataset.fid)}
+  else if(a==='frm'&&x){if(!confirm('Убрать этот файл?'))return;solRmFile(x,el.dataset.fid).then(()=>render())}
   else if(a==='copy'&&x){navigator.clipboard.writeText(solText(x)).then(()=>toast('Скопировано'),()=>toast('Не удалось скопировать'))}
-  else if(a==='del'&&x){if(!confirm('Удалить это решение из архива?'))return;S.sols=S.sols.filter(y=>y.id!==id);save();render()}
+  else if(a==='del'&&x){if(!confirm('Удалить это решение из архива?'))return;S.sols=S.sols.filter(y=>y.id!==id);phDel('sf:'+id);save();render()}
 });
 
 render();
