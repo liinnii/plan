@@ -333,6 +333,16 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
 </div>
 <div id="layer"></div>
 
+<style>
+.cfl{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.cfc{padding:16px;border-radius:20px;background:var(--surface);border:1px solid var(--line);display:flex;flex-direction:column;gap:10px;min-width:0;overflow-wrap:anywhere}
+.cfc .cfm,.cfc .cfb{display:flex;gap:6px;flex-wrap:wrap}
+.cfc .cfb{gap:8px}
+.cfc summary{cursor:pointer;font-weight:600;color:var(--accent)}
+.cfp{white-space:pre-wrap;margin-top:8px;line-height:1.5;max-height:320px;overflow:auto}
+.cfc a.btn{display:inline-block;text-decoration:none;color:inherit}
+.grid2>label{min-width:0}.grid2 input[type=date]{min-width:0;max-width:100%;box-sizing:border-box}
+</style>
 <script>
 (function(){
 'use strict';
@@ -414,7 +424,7 @@ function seed(){
     tpl:[{id:uid(),text:'Подготовить урок 60м #репетиторство'},{id:uid(),text:'Учёба 1ч #учёба'},{id:uid(),text:'Уборка 30м #дом'},{id:uid(),text:'Прогулка 30м #отдых'}]
   };
 }
-S=load()||seed(); if(!S.prompts)S.prompts=[]; if(!S.tpl)S.tpl=seed().tpl; let flt='all', tagColor='#7A5AF8', lastDel=null, qOpen=false, bulk=false, showRest=false, skipN=0; if(S.soft===undefined)S.soft=true; if(!S.heavy)S.heavy={}; if(!S.battery)S.battery={}; if(!S.pet)S.pet={mode:null,start:0,len:0,base:0,points:0,locked:0,warned:false};
+S=load()||seed(); if(!S.prompts)S.prompts=[]; if(!S.conf)S.conf=[]; if(!S.tpl)S.tpl=seed().tpl; let flt='all', tagColor='#7A5AF8', lastDel=null, qOpen=false, bulk=false, showRest=false, skipN=0; if(S.soft===undefined)S.soft=true; if(!S.heavy)S.heavy={}; if(!S.battery)S.battery={}; if(!S.pet)S.pet={mode:null,start:0,len:0,base:0,points:0,locked:0,warned:false};
 if(!S.why)S.why=[];if(!S.winLog)S.winLog={};if(!S.lazy)S.lazy={min:0,credit:0};if(!S.duck)S.duck=[];if(S.draft===undefined)S.draft='';if(!S.care)S.care=[]; if(!S.doneDays)S.doneDays={}; if(S.wins===undefined)S.wins=S.tasks.filter(t=>t.done).length;
 if(!S.reward)S.reward={text:'',goal:10}; if(!S.game)S.game={best:{}}; if(!S.alch)S.alch={found:['water','fire','earth','air']}; if(!S.merge)S.merge=null; if(!S.hist)S.hist=[];
 if(!S.joy)S.joy=['Любимый плейлист и чай','Позвонить подруге','Тёплый душ и пижама','Посмотреть серию с вкусняшкой'].map(t=>({id:uid(),text:t}));
@@ -789,10 +799,11 @@ const IC={
  mic:'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
  ok:'<svg viewBox="0 0 24 24" fill="none" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'
 };
-const VIEWS=[['day','День'],['week','Неделя'],['sch','Пары'],['habits','Привычки'],['focus','Фокус'],['notes','Заметки'],['joy','Радость'],['chat','Поддержка'],['tutor','Репетитор'],['ai','Учёба ИИ']];
+const VIEWS=[['day','День'],['week','Неделя'],['sch','Пары'],['habits','Привычки'],['focus','Фокус'],['notes','Заметки'],['conf','Конференции'],['joy','Радость'],['chat','Поддержка'],['tutor','Репетитор'],['ai','Учёба ИИ']];
 IC.chat='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/><path d="M8.5 9.5h7M8.5 12.5h4"/></svg>';
 IC.tutor='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4M7 9h6M7 12h4"/></svg>';
 IC.more='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="18.5" cy="12" r="1.4"/></svg>';
+IC.conf='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10v4h3l7 4V6L7 10z"/><path d="M17.5 9.5a4 4 0 0 1 0 5"/><path d="M7 14l1.2 5h2.3L9.6 15.5"/></svg>';
 const NAV_PRI=['day','week','sch'];
 function navSheet(on){
   const o=$('#navsheet');if(o)o.remove();if(!on)return;
@@ -806,6 +817,105 @@ function renderNav(){
   const hid=!NAV_PRI.includes(view),cur=VIEWS.find(v=>v[0]===view);
   $('#nav').innerHTML='<div class="brand"><i></i>Мой ритм</div>'+VIEWS.map(([k,n])=>`<button class="${NAV_PRI.includes(k)?'':'nx'}" data-act="nav" data-v="${k}" ${view===k?'aria-current="page"':''}>${IC[k]}<span>${n}</span></button>`).join('')+`<button class="nm" data-act="navmore" aria-label="Ещё разделы" ${hid?'aria-current="page"':''}>${hid&&cur?IC[view]:IC.more}<span>${hid&&cur?cur[1]:'Ещё'}</span></button><div class="sp"></div>`;
 }
+
+/* ---------- конференции: посты, чтобы не забыть ---------- */
+const CF={tab:'act',edit:null,dr:{},busy:false,msg:'',key:false};
+const cfPassed=c=>c.dl?dueIn(c.dl)<0:(c.d?dueIn(c.d)<0:false);
+const cfGroup=c=>c.st==='sent'?'sent':(cfPassed(c)?'old':'act');
+const cfWhen=s=>{const d=parseD(s),y=new Date().getFullYear();return d.getDate()+' '+MON[d.getMonth()]+(d.getFullYear()!==y?' '+d.getFullYear():'')};
+const cfLeft=n=>n<0?'срок прошёл':n===0?'сегодня':n===1?'завтра':'через '+n+' дн.';
+function cfUrl(u){u=(u||'').trim();if(!u)return '';return /^https?:\/\//i.test(u)?u:'https://'+u.replace(/^\/+/,'')}
+function cfSort(a,b){const k=c=>c.dl||c.d||'9999-12-31';return k(a)<k(b)?-1:k(a)>k(b)?1:0}
+function confBanner(){
+  const u=(S.conf||[]).filter(c=>c.dl&&c.st!=='sent'&&dueIn(c.dl)>=0&&dueIn(c.dl)<=3).sort(cfSort).slice(0,3);
+  return u.length?'<div class="banner"><span>Конференции, срок подачи: '+u.map(c=>esc(c.t)+' ('+cfLeft(dueIn(c.dl))+')').join('; ')+'</span><button class="btn sm ghost" data-act="nav" data-v="conf">Открыть</button></div>':'';
+}
+function cfCard(c){
+  const gr=cfGroup(c),n=c.dl?dueIn(c.dl):null,lk=cfUrl(c.l),ch=[];
+  if(c.dl)ch.push('<span class="chip '+(gr==='sent'?'duecalm':n<0?'duebad':n<=3?'warnchip':'duecalm')+'">⚑ заявки до '+cfWhen(c.dl)+(gr==='act'?' · '+cfLeft(n):'')+'</span>');
+  if(c.d)ch.push('<span class="chip">конференция '+cfWhen(c.d)+'</span>');
+  if(c.w)ch.push('<span class="chip">'+esc(c.w)+'</span>');
+  if(gr==='sent')ch.push('<span class="chip" style="color:var(--good)">заявка подана</span>');
+  return '<div class="cfc fade"><div style="font-weight:700;font-size:16px">'+esc(c.t||'Без названия')+'</div>'+
+    (ch.length?'<div class="cfm">'+ch.join('')+'</div>':'')+
+    (c.p?'<details><summary>Текст поста</summary><div class="cfp">'+esc(c.p)+'</div></details>':'')+
+    '<div class="cfb">'+
+    '<button class="btn sm" data-cf="sent" data-id="'+c.id+'">'+(c.st==='sent'?'Вернуть в актуальные':'Подала заявку')+'</button>'+
+    (lk?'<a class="btn sm ghost" href="'+esc(lk)+'" target="_blank" rel="noopener noreferrer">Открыть пост</a>':'')+
+    '<button class="btn sm ghost" data-cf="edit" data-id="'+c.id+'">Изменить</button>'+
+    '<button class="btn sm ghost" data-cf="del" data-id="'+c.id+'">Удалить</button></div></div>';
+}
+function cfSync(){['t','p','l','dl','d','w'].forEach(k=>{const f=$('#cf-'+k);if(f)CF.dr[k]=f.value})}
+async function cfAI(auto){
+  if(CF.busy)return;
+  cfSync();const txt=(CF.dr.p||'').trim();
+  if(txt.length<30){if(!auto)toast('Сначала вставь текст поста');return}
+  CF.busy=true;CF.msg='';CF.key=false;render();
+  const pr='Ты помощник студента-исследователя. Ниже пост с анонсом конференции. Извлеки данные. Сегодня '+todayS()+'. Даты верни как ГГГГ-ММ-ДД; если год не указан, возьми ближайшую будущую дату. «deadline» это последний срок подачи заявки на участие, тезисов или статьи (если сроков несколько, возьми срок подачи заявки). «date» это дата начала конференции. Ничего не выдумывай: если данных нет, верни пустую строку. Пост: \"\"\"'+txt.slice(0,8000)+'\"\"\" Верни только JSON: {\"title\":\"название конференции, коротко\",\"deadline\":\"\",\"date\":\"\",\"place\":\"формат и место, коротко, например: Онлайн или Волгоград, очно\",\"link\":\"ссылка из текста, если есть\"}. Без markdown.';
+  try{
+    const r=await aiJ(pr)||{};
+    const okD=s=>/^\d{4}-\d{2}-\d{2}$/.test(s||'')&&!isNaN(parseD(s).getTime());
+    const put=(k,v)=>{v=String(v||'').trim();if(v&&(!auto||!CF.dr[k]))CF.dr[k]=v};
+    put('t',String(r.title||'').slice(0,120));
+    if(okD(r.deadline))put('dl',r.deadline);
+    if(okD(r.date))put('d',r.date);
+    put('w',String(r.place||'').slice(0,80));
+    put('l',r.link);
+    CF.msg=(r.title||okD(r.deadline)||okD(r.date))?'Заполнила поля. Проверь даты и сохрани.':'Не нашла в тексте названия и дат, заполни вручную.';
+  }catch(e){
+    const m=aiErr(e);
+    if(m==='nokey'){CF.key=true;CF.msg='Чтобы ИИ разбирал посты, нужен ключ.'}else CF.msg=m;
+  }
+  CF.busy=false;render();
+}
+document.addEventListener('paste',e=>{if(e.target&&e.target.id==='cf-p')setTimeout(()=>cfAI(true),80)});
+function vConf(){
+  if(!S.conf)S.conf=[];
+  const g={act:[],sent:[],old:[]};S.conf.forEach(c=>g[cfGroup(c)].push(c));
+  Object.keys(g).forEach(k=>g[k].sort(cfSort));
+  const ed=CF.edit&&S.conf.find(c=>c.id===CF.edit),v=CF.dr||{};
+  const tabs=[['act','Актуальные'],['sent','Подала'],['old','Прошли']];
+  const empty={act:'Пока пусто. Сохрани первый пост выше, и он появится здесь.',sent:'Здесь будут конференции, на которые ты уже подала заявку.',old:'Сюда попадают конференции, у которых срок уже прошёл.'}[CF.tab];
+  return '<div class="head"><div><div class="eyebrow">Конференции</div><h1>Не пропустить конференцию</h1><p>Сохраняй посты с конференциями: срок подачи, дата и ссылка всегда под рукой. За три дня до срока напомню на главной.</p></div></div>'+
+  '<div class="stack"><section class="card"><div class="row"><h3 class="grow" style="font-size:16px">'+(ed?'Правка поста':'Новый пост')+'</h3></div>'+
+  '<div class="stack" style="gap:10px;margin-top:10px">'+
+  '<label>Название конференции<input type="text" id="cf-t" value="'+esc(v.t||'')+'" placeholder="Например, Правовая наука 2027"></label>'+
+  '<label>Текст поста<textarea id="cf-p" placeholder="Вставь пост целиком: название, даты, формат и ссылку ИИ найдёт сам">'+esc(v.p||'')+'</textarea></label>'+
+  '<div class="row" style="gap:8px"><button type="button" class="btn sm" data-cf="ai"'+(CF.busy?' disabled':'')+'>✨ Разобрать пост с ИИ</button><span class="muted" style="font-size:13px" role="status">'+(CF.busy?'Читаю пост…':CF.msg?esc(CF.msg):'Сработает сам, когда вставишь текст')+'</span></div>'+
+  (CF.key?'<div class="stack" style="gap:8px"><div class="muted" style="font-size:13px">Нужен бесплатный ключ Google Gemini: <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>. Ключ хранится только в этом браузере.</div><input type="password" id="cf-key" autocomplete="off" placeholder="AIza…"><button type="button" class="btn sm primary" data-cf="key">Сохранить ключ и разобрать</button></div>':'')+
+  '<label>Ссылка на пост<input type="text" id="cf-l" value="'+esc(v.l||'')+'" placeholder="t.me/... или адрес сайта"></label>'+
+  '<div class="grid2"><label>Срок подачи заявки<input type="date" id="cf-dl" value="'+esc(v.dl||'')+'"></label><label>Дата конференции<input type="date" id="cf-d" value="'+esc(v.d||'')+'"></label></div>'+
+  '<label>Формат или место<input type="text" id="cf-w" value="'+esc(v.w||'')+'" placeholder="Онлайн, очно, город"></label>'+
+  '<div class="row" style="justify-content:flex-end">'+(ed?'<button class="btn" data-cf="cancel">Отмена</button>':'')+'<button class="btn primary" data-cf="save">'+(ed?'Сохранить изменения':'Сохранить пост')+'</button></div>'+
+  '</div></section>'+
+  '<div class="row" style="gap:8px">'+tabs.map(([k,n])=>'<button class="qc" data-cf="tab" data-v="'+k+'" aria-pressed="'+(CF.tab===k)+'" style="'+(CF.tab===k?'background:var(--soft);color:var(--accent)':'')+'">'+n+' · '+g[k].length+'</button>').join('')+'</div>'+
+  '<div class="cfl">'+(g[CF.tab].map(cfCard).join('')||'<div class="card empty" style="grid-column:1/-1">'+empty+'</div>')+'</div></div>';
+}
+document.addEventListener('input',e=>{const i=e.target.id;if(i&&i.indexOf('cf-')===0&&i!=='cf-key'&&CF.dr)CF.dr[i.slice(3)]=e.target.value});
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-cf]');if(!el)return;
+  const a=el.dataset.cf,id=el.dataset.id;if(!S.conf)S.conf=[];
+  const c=id&&S.conf.find(x=>x.id===id);
+  if(a==='tab'){cfSync();CF.tab=el.dataset.v;render()}
+  else if(a==='ai')cfAI(false);
+  else if(a==='key'){const k=(($('#cf-key')||{}).value||'').trim();if(!k){toast('Вставь ключ');return}
+    try{localStorage.setItem(AIK,JSON.stringify(Object.assign(aiCfg(),{key:k})))}catch(x){toast('Не удалось сохранить ключ в браузере');return}
+    CF.key=false;cfAI(false)}
+  else if(a==='save'){
+    const gv=i=>(($('#cf-'+i)||{}).value||'').trim();
+    const o={t:gv('t'),p:gv('p'),l:gv('l'),dl:gv('dl'),d:gv('d'),w:gv('w')};
+    if(!o.t&&!o.p){toast('Напиши название или вставь текст поста');const f=$('#cf-t');if(f)f.focus();return}
+    if(!o.t)o.t=o.p.split('\n')[0].slice(0,80);
+    let it=CF.edit&&S.conf.find(x=>x.id===CF.edit);
+    if(it){Object.assign(it,o);toast('Изменения сохранены')}
+    else{it=Object.assign({id:uid(),st:'new',ts:Date.now()},o);S.conf.push(it);toast('Пост сохранён')}
+    CF.edit=null;CF.dr={};CF.tab=cfGroup(it);save();render();
+  }
+  else if(a==='edit'&&c){CF.edit=id;CF.dr={t:c.t||'',p:c.p||'',l:c.l||'',dl:c.dl||'',d:c.d||'',w:c.w||''};render();window.scrollTo(0,0)}
+  else if(a==='cancel'){CF.edit=null;CF.dr={};render()}
+  else if(a==='sent'&&c){c.st=c.st==='sent'?'new':'sent';save();render();toast(c.st==='sent'?'Отметила: заявка подана':'Вернула в актуальные')}
+  else if(a==='del'&&c){if(!confirm('Удалить этот пост?'))return;S.conf=S.conf.filter(x=>x.id!==id);if(CF.edit===id){CF.edit=null;CF.dr={}}save();render()}
+});
 
 /* ---------- виды ---------- */
 function taskRow(t,opts={}){
@@ -877,7 +987,7 @@ function vDay(){
         return (pr.length>1||flt!=='all')?`<div class="cats" style="margin-top:12px"><button data-act="flt" data-k="all" aria-pressed="${flt==='all'}">Все</button>${pr.filter(k=>CATS[k]).map(k=>`<button data-act="flt" data-k="${k}" aria-pressed="${flt===k}" style="color:${CATS[k].c}">${esc(CATS[k].n)}</button>`).join('')}<button data-act="tagmodal" aria-pressed="false" style="color:var(--accent)">+ Тег</button></div>`:''})()}
       ${od.length&&isT?`<div class="banner"><span>Со вчера осталось дел: ${od.length}. Это нормально, ничего страшного.</span><button class="btn sm primary" data-act="softmove">Перенести мягко</button><button class="btn sm" data-act="carestart">Перенести с заботой</button><button class="btn sm" data-act="rollover">На сегодня</button><button class="btn sm ghost" data-act="release">В копилку</button></div>`:''}
       ${isT&&!od.length&&open.length?`<div class="banner"><span>Устала или не успеваешь? Разложу дела на ближайшие дни без авралов.</span><button class="btn sm primary" data-act="softmove">Перенести мягко</button></div>`:''}
-      ${isT?dueBanner():''}
+      ${isT?dueBanner()+confBanner():''}
       ${lowBat&&!heavy?'<div class="banner"><span>Энергия '+bat(sel)+' из 10: показываю только главное, максимум два дела.</span></div>':''}
       ${heavy?'<div class="banner"><span>Сегодня тяжело, и это нормально. Одно маленькое дело уже хороший день.</span></div>':''}
       ${(timedOpen.length||unOpen.length||doneShown.length)?`<div class="tl">
@@ -1315,7 +1425,7 @@ document.addEventListener('click',e=>{
 });
 function render(){
   renderNav();
-  $('#main').innerHTML={day:vDay,week:vWeek,sch:vSchedule,habits:vHabits,focus:vFocus,notes:vNotes,joy:vJoy,chat:vChat,tutor:vTutor,ai:vAI}[view]();
+  $('#main').innerHTML={day:vDay,week:vWeek,sch:vSchedule,habits:vHabits,focus:vFocus,notes:vNotes,conf:vConf,joy:vJoy,chat:vChat,tutor:vTutor,ai:vAI}[view]();
   foldify();
   if(view==='joy'&&MG.tab==='alch')alField();
   if(view==='day'){updatePreview();}
