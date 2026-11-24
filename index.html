@@ -313,6 +313,16 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
 .tuv{position:fixed;inset:0;z-index:90;background:var(--bg);display:grid;grid-template-rows:auto minmax(0,1fr);padding-top:env(safe-area-inset-top,0px)}
 .tuv-t{display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--line)}
 .tuv iframe{width:100%;height:100%;border:0;background:#fff}
+@keyframes scdrift{from{transform:translateX(-14px)}to{transform:translateX(26px)}}
+.scl{animation:scdrift 18s ease-in-out infinite alternate}
+@keyframes scwave{from{transform:translateX(0)}to{transform:translateX(-30px)}}
+.swv{animation:scwave 3s linear infinite}
+@keyframes sccrab{from{transform:translateX(0)}to{transform:translateX(52px)}}
+.scrab{animation:sccrab 7s ease-in-out infinite alternate}
+@keyframes scpulse{50%{opacity:.5}}
+.sp-ok{animation:scpulse 1.4s ease-in-out infinite}
+@keyframes scgull{from{transform:translateX(-40px)}to{transform:translateX(400px)}}
+.scgull{animation:scgull 24s linear infinite}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 
@@ -1111,17 +1121,18 @@ function mrState(){
 }
 function mrHTML(){
   const m=mrState();
-  return `<p class="muted" style="margin:8px auto 12px;max-width:440px;font-size:13px">Подноси одинаковые блюда друг к другу, и они сольются в следующее. Готовое блюдо отдавай клиентам за монеты. Игра открывается на весь экран, чтобы всё было видно сразу.</p>
+  return `<div style="margin-top:10px">${mrScene(m)}</div><p class="muted" style="margin:12px auto;max-width:440px;font-size:13px">Подноси одинаковые блюда друг к другу, и они сольются в следующее. Готовое блюдо отдавай клиентам за монеты. Игра открывается на весь экран, чтобы всё было видно сразу.</p>
   <div class="row" style="justify-content:center;gap:6px;margin-bottom:12px"><span class="chip">🪙 ${m.coins}</span><span class="chip">клиентов: ${m.served}</span><span class="chip">слияний: ${m.merges}</span><span class="chip">⭐ уровень ${mrLevel(m)}</span></div>
   <button class="btn primary" style="min-width:200px;font-size:16px" data-mg="mrfs">Играть на весь экран</button>
   <div style="margin-top:10px"><button class="btn" data-mg="shop">🛒 Магазин: улучшения и украшения</button></div>${m.decor.length?`<div style="margin-top:12px;font-size:26px" title="Украшения кафе">${m.decor.map(j=>MR_DECOR[j][0]).join(" ")}</div>`:""}
   <div style="margin-top:12px"><button class="btn sm ghost" data-mg="mrreset">Начать заново</button></div>`;
 }
 function mrFSHTML(){
+  if(MR_SCREEN==='cafe')return mrCafeFS(mrState());
   const m=mrState(),ch=MR_CH[m.pick],pr=Math.min(100,Math.round(m.prog/m.goal*100));
   const cell=(v,i)=>{const lk=mrLocked(i);return `<div class="mc ${v?'has':''} ${lk?'lock':''} ${MR_SEL===i?'sel':''}" data-mc="${i}" ${v?`aria-label="${MR_CH[Math.floor(v/10)].t[v%10-1]}"`:lk?'aria-label="Закрытая клетка"':''}>${lk?'🔒':v?MR_CH[Math.floor(v/10)].i[v%10-1]:''}</div>`};
   const cu=(g,k)=>`<div class="cu ${m.cells.some(v=>v&&Math.floor(v/10)===g.c&&v%10===g.l)?'rdy':''}" data-mg="cu" data-k="${k}"><div class="ca">${g.a}</div><div class="cn">${g.v?"👑 ":""}${esc(g.name)}</div><div class="cw">${MR_CH[g.c].i[g.l-1]}</div><div class="cr">🪙${g.r}</div></div>`;
-  return `<div class="mrfs-top"><span class="chip">🪙 ${m.coins}</span><span class="chip">⭐ ${mrLevel(m)}</span><div class="bar grow" style="height:10px;min-width:40px"><i style="width:${pr}%;background:var(--good)"></i></div><b style="font-size:12px;white-space:nowrap">${m.prog}/${m.goal}</b><button class="mrfs-x" data-mg="shop" aria-label="Магазин">🛒</button><button class="mrfs-x" data-mg="mrclose" aria-label="Закрыть игру">✕</button></div>
+  return `<div class="mrfs-top"><span class="chip">🪙 ${m.coins}</span><span class="chip">⭐ ${mrLevel(m)}</span><div class="bar grow" style="height:10px;min-width:40px"><i style="width:${pr}%;background:var(--good)"></i></div><b style="font-size:12px;white-space:nowrap">${m.prog}/${m.goal}</b><button class="mrfs-x" data-mg="scr" data-v="cafe" aria-label="Моё кафе">🏖️</button><button class="mrfs-x" data-mg="shop" aria-label="Магазин">🛒</button><button class="mrfs-x" data-mg="mrclose" aria-label="Закрыть игру">✕</button></div>
   <div class="cus">${m.cust.map(cu).join('')}</div>
   <div class="mrbw" id="mrbw"><div class="mrb">${m.cells.map(cell).join('')}</div></div>
   <div class="mrfs-bot">
@@ -1253,6 +1264,7 @@ document.addEventListener('click',e=>{
   if(a==='shop'){mrShopOpen();return}
   if(a==='shopx'){if(e.target===el)mrShopClose();return}
   if(a==='shopc'){mrShopClose();return}
+  if(a==='scr'){MR_SCREEN=el.dataset.v;MR_SEL=-1;MR_WAND=false;mgPaint();return}
   if(a==='mtab'){MRTAB=el.dataset.v;mgPaint();return}
   if(a==='buy'){mrBuy(el.dataset.k);return}
   if(a==='usewand'){MR_WAND=!MR_WAND;MR_SEL=-1;if(MR_WAND)toast('Нажми на блюдо, которое хочешь улучшить');mgPaint();return}
@@ -2140,7 +2152,7 @@ const MR_ACH=[
 ];
 function mrCheck(){const m=S.merge;if(!m||m.v!==2||!m.ach||!m.up)return;let ch=false;
   const lv=mrLevel(m);
-  if(lv>(m.lvl||1)){const b=40*lv,nw=MR_CH.filter(c=>c.lv===lv).map(c=>c.n);m.coins+=b;m.lvl=lv;ch=true;toast('⭐ Кафе: уровень '+lv+'! +'+b+' монет'+(nw.length?'. Открыто: '+nw.join(', '):''))}
+  if(lv>(m.lvl||1)){const b=40*lv,nw=MR_CH.filter(c=>c.lv===lv).map(c=>c.n);m.coins+=b;m.lvl=lv;ch=true;toast('⭐ Уровень '+lv+'! +'+b+' монет. Новая глава сюжета'+(nw.length?'. Открыто: '+nw.join(', '):''))}
   MR_ACH.forEach(a=>{if(!m.ach[a[0]]&&a[4](m)){m.ach[a[0]]=1;m.coins+=a[5];ch=true;toast('🏅 '+a[2]+': +'+a[5]+' монет')}});
   if(ch)save()}
 function mrQuestsBody(m){
@@ -2152,13 +2164,80 @@ function mrAchBody(m){
   return `<div class="muted" style="font-size:12px">Получено ${d} из ${MR_ACH.length}. Награда приходит сама.</div>`+MR_ACH.map(a=>{const ok=m.ach[a[0]];
     return `<div class="li" style="opacity:${ok?1:.65}"><span style="display:flex;gap:10px;align-items:center"><span style="font-size:24px">${ok?a[1]:'🔒'}</span><span><b>${a[2]}</b><br><span class="muted" style="font-size:12px">${a[3]}</span></span></span><span class="chip">${ok?'✓':'🪙 '+a[5]}</span></div>`}).join('')}
 function mrShopInner(){
-  const m=mrState(),lv=mrLevel(m),nx=MR_LV[lv],tabs=[['shop','Магазин'],['quests','Задания'],['ach','Награды']];
+  const m=mrState(),lv=mrLevel(m),nx=MR_LV[lv],tabs=[['shop','Магазин'],['quests','Задания'],['ach','Награды'],['story','Сюжет']];
   return `<div class="row" style="justify-content:space-between"><h3 style="font-size:18px">Моё кафе</h3><span class="chip">🪙 ${m.coins}</span></div>
   <div class="muted" style="font-size:13px">⭐ Уровень ${lv}${nx!==undefined?'. До следующего: ещё '+(nx-m.served)+' клиентов':'. Максимальный'}</div>
   <div class="row" style="gap:6px">${tabs.map(t=>`<button class="btn sm ${MRTAB===t[0]?'primary':''}" data-mg="mtab" data-v="${t[0]}">${t[1]}</button>`).join('')}</div>
-  ${MRTAB==='quests'?mrQuestsBody(m):MRTAB==='ach'?mrAchBody(m):mrShopBody()}
+  ${MRTAB==='quests'?mrQuestsBody(m):MRTAB==='ach'?mrAchBody(m):MRTAB==='story'?mrStoryBody(m):mrShopBody()}
   <button class="btn" data-mg="shopc">Закрыть</button>`;
 }
+
+/* ---------- кафе у моря: сцена, сюжет, ремонт ---------- */
+var MR_SCREEN='kitchen';
+const MR_STORY=[
+ {a:'👵',n:'Бабушка Нина',t:'Вот и наше наследство, внучка! Старое кафе у моря знавало лучшие времена, но стены у него крепкие. Накорми первых гостей, и дело пойдёт.'},
+ {a:'👨‍🎓',n:'Студент Макс',t:'Я пришёл за кофе и тишиной для конспектов. А ещё слышал, у вас появились суши. Принесёшь?'},
+ {a:'👩‍💼',n:'Леди Ольга',t:'Говорят, здесь снова готовят. Посмотрим, достойно ли. Начнём с чего-нибудь мексиканского.'},
+ {a:'🧔',n:'Дядя Боря',t:'Привёз улов, а к нему нужно мясо на гриле. Ты только держи огонь, а я расскажу всей деревне про твою кухню.'},
+ {a:'👸',n:'Принцесса Мила',t:'У меня день рождения, и я хочу праздник на твоей веранде! С шариками, бокалами и тортом до небес.'},
+ {a:'👩‍🎤',n:'Рокерша Зоя',t:'Дай мне уголок на веранде, и вечером здесь будет концерт. Только пусть будет много гостей и громкая музыка.'},
+ {a:'👩‍🏫',n:'Учитель Анна',t:'Мой класс заканчивает год. Можно устроить у тебя выпускной? Обещаю, что стулья останутся целы.'},
+ {a:'🧑‍🚀',n:'Космонавт Лёша',t:'С орбиты я видел огни твоего кафе. Мы всем экипажем летим к тебе на ужин, держи столики наготове.'},
+ {a:'🧙',n:'Волшебник Игнат',t:'Твоё кафе наколдовало уже столько звёзд! Остаётся одно маленькое усилие, и о нём заговорит всё побережье.'},
+ {a:'👵',n:'Бабушка Нина',t:'Теперь это лучшее кафе на побережье. Я горжусь тобой, внучка. Но сказки только начинаются, впереди новые меню и новые гости.'}
+];
+function mrStoryBody(m){const lv=mrLevel(m);
+  return '<div class="muted" style="font-size:12px">Новая глава открывается с каждым уровнем кафе. Прочитано '+lv+' из '+MR_STORY.length+'.</div>'+MR_STORY.map((c,i)=>i<lv?`<div class="li" style="align-items:flex-start"><span style="display:flex;gap:10px;align-items:flex-start"><span style="font-size:26px;line-height:1">${c.a}</span><span><b>Глава ${i+1}. ${c.n}</b><br><span style="font-size:13px">${esc(c.t)}</span></span></span></div>`:`<div class="li" style="opacity:.55"><span>🔒 Глава ${i+1}</span><span class="muted" style="font-size:12px">откроется на уровне ${i+1}</span></div>`).join('')}
+function mrScene(m){
+  const h=new Date().getHours(),n=h>=21||h<6,lv=mrLevel(m),tier=lv<=2?0:lv<=5?1:lv<=8?2:3;
+  const wall=['#F6E3C3','#FFE3D0','#E3EEFF','#FFF2C2'][tier],roof=['#C9533F','#D45FA8','#3E9BD6','#7A5AF8'][tier];
+  const ready=g=>m.cells.some((v,i)=>v&&!mrLocked(i)&&Math.floor(v/10)===g.c&&v%10===g.l);
+  let s=`<svg viewBox="0 0 360 250" style="width:100%;display:block;border-radius:22px;background:#fff" role="img" aria-label="Твоё кафе у моря"><defs><linearGradient id="skg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${n?'#1B1F4B':'#8FD3FF'}"/><stop offset="1" stop-color="${n?'#4A3F8F':'#EAF7FF'}"/></linearGradient><linearGradient id="seg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${n?'#1E3A78':'#4FB8E8'}"/><stop offset="1" stop-color="${n?'#14285A':'#2C8FCC'}"/></linearGradient></defs>`;
+  s+='<rect width="360" height="130" fill="url(#skg)"/>';
+  if(n){[[30,20,1.4],[80,45,1],[140,18,1.2],[200,38,1],[250,16,1.4],[330,70,1],[60,80,1],[170,70,1]].forEach(a=>{s+=`<circle cx="${a[0]}" cy="${a[1]}" r="${a[2]}" fill="#fff"/>`});s+='<circle cx="300" cy="40" r="15" fill="#FFF4C9"/><circle cx="307" cy="35" r="13" fill="#2B2A66"/>'}
+  else{s+='<circle cx="300" cy="40" r="26" fill="#FFD166" opacity=".3"/><circle cx="300" cy="40" r="17" fill="#FFD166"/><g class="scl" fill="#fff" opacity=".9"><ellipse cx="70" cy="40" rx="26" ry="9"/><ellipse cx="90" cy="34" rx="18" ry="9"/><ellipse cx="210" cy="62" rx="24" ry="8"/><ellipse cx="228" cy="57" rx="16" ry="8"/></g><text class="scgull" x="0" y="26" font-size="14">🕊️</text>'}
+  s+='<rect y="118" width="360" height="56" fill="url(#seg)"/><g class="swv" fill="none" stroke="#fff" stroke-width="1.6" opacity=".55"><path d="M-30 134 q15 -7 30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0"/><path d="M-30 152 q15 -7 30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0"/></g>';
+  s+='<g transform="translate(262 108)"><path d="M0 14h26l-5 7H5z" fill="#8A5A2B"/><path d="M13 0v14" stroke="#8A5A2B" stroke-width="1.5"/><path d="M14 1l11 11H14z" fill="#fff"/></g>';
+  s+='<path d="M0 168Q180 158 360 170V250H0Z" fill="#F4DDA9"/><rect x="0" y="180" width="360" height="70" fill="#D9B27C"/>';
+  for(let i=0;i<6;i++)s+=`<line x1="0" x2="360" y1="${192+i*12}" y2="${192+i*12}" stroke="#C9A06B" stroke-width="1"/>`;
+  s+=`<polygon points="14,90 110,48 206,90" fill="${roof}"/><rect x="24" y="88" width="172" height="90" fill="${wall}"/><rect x="24" y="170" width="172" height="8" fill="#B58A57"/>`;
+  s+=`<rect x="40" y="104" width="38" height="34" rx="4" fill="${n?'#FFE08A':'#BFE6FF'}" stroke="#8A5A2B" stroke-width="3"/><rect x="142" y="104" width="38" height="34" rx="4" fill="${n?'#FFE08A':'#BFE6FF'}" stroke="#8A5A2B" stroke-width="3"/><rect x="92" y="122" width="34" height="56" rx="4" fill="#8A5A2B"/><circle cx="120" cy="150" r="2.5" fill="#FFD166"/>`;
+  s+=`<rect x="62" y="64" width="96" height="20" rx="6" fill="#fff" stroke="#8A5A2B" stroke-width="2"/><text x="110" y="78" text-anchor="middle" font-size="10" font-weight="700" fill="#8A5A2B">${tier?'КАФЕ У МОРЯ':'КАФЕ'}</text>`;
+  if(tier>=1){for(let i=0;i<13;i++)s+=`<rect x="${20+i*14}" y="140" width="14" height="12" fill="${i%2?'#fff':roof}"/>`;s+=`<rect x="20" y="152" width="182" height="3" fill="${roof}" opacity=".35"/>`}
+  if(tier>=2)s+='<rect x="108" y="22" width="3" height="28" fill="#8A5A2B"/><polygon points="111,22 134,29 111,36" fill="#E5A23B"/>';
+  if(tier>=3)for(let i=0;i<12;i++)s+=`<circle cx="${28+i*14.5}" cy="${92+Math.abs(Math.sin(i))*3}" r="2.6" fill="${['#FF8FC7','#FFD166','#55B98F','#9C7DFF'][i%4]}"/>`;
+  s+='<text x="338" y="170" font-size="36" text-anchor="middle">🌴</text><g class="scrab"><text x="40" y="176" font-size="13">🦀</text></g>';
+  const P=[[30,176,26],[109,116,22],[85,142,20],[60,66,16],[134,142,20],[262,176,28],[300,170,30],[187,114,20]];
+  MR_DECOR.forEach((d,j)=>{const x=P[j][0],y=P[j][1],z=P[j][2],own=m.decor.includes(j);
+    if(own)s+=`<g data-sc="decor" data-j="${j}" style="cursor:pointer"><text x="${x}" y="${y}" font-size="${z}" text-anchor="middle">${d[0]}</text><rect x="${x-z/2-2}" y="${y-z}" width="${z+4}" height="${z+6}" fill="transparent"/></g>`;
+    else{const ok=m.coins>=d[2];s+=`<g data-sc="decor" data-j="${j}" style="cursor:pointer" class="${ok?'sp-ok':''}"><circle cx="${x}" cy="${y-z/2+2}" r="12" fill="rgba(40,30,70,.35)" stroke="#fff" stroke-width="1.6" stroke-dasharray="3 2"/><text x="${x}" y="${y-z/2+7}" font-size="16" font-weight="700" fill="#fff" text-anchor="middle">+</text><rect x="${x-14}" y="${y-z/2+16}" width="28" height="11" rx="5" fill="${ok?'#3FA882':'#fff'}" opacity=".95"/><text x="${x}" y="${y-z/2+25}" font-size="9" font-weight="700" text-anchor="middle" fill="${ok?'#fff':'#5A4A8A'}">${d[2]}</text></g>`}});
+  const X=[58,142,226,310];
+  for(let k=0;k<4;k++){const x=X[k],g=m.cust[k];
+    if(!g&&k!==m.cust.length)continue;
+    if(g){const rd=ready(g);
+      s+=`<g data-sc="cust" data-k="${k}" style="cursor:pointer"><ellipse cx="${x}" cy="226" rx="27" ry="8" fill="#8A5A2B"/><rect x="${x-3}" y="226" width="6" height="16" fill="#6B431F"/><ellipse cx="${x}" cy="223" rx="9" ry="3" fill="#fff"/><text x="${x}" y="212" font-size="30" text-anchor="middle">${g.a}</text>${g.v?`<text x="${x+14}" y="190" font-size="14">👑</text>`:''}<rect x="${x-18}" y="156" width="36" height="28" rx="10" fill="#fff" stroke="${rd?'#3FA882':'#C9B8FF'}" stroke-width="${rd?3:2}"/><path d="M${x-5} 184l5 7 5-7z" fill="#fff"/><text x="${x}" y="177" font-size="20" text-anchor="middle">${MR_CH[g.c].i[g.l-1]}</text><rect x="${x-30}" y="150" width="60" height="96" fill="transparent"/></g>`}
+    else s+=`<g data-sc="slot" style="cursor:pointer" class="${m.coins>=150?'sp-ok':''}"><ellipse cx="${x}" cy="226" rx="27" ry="8" fill="rgba(40,30,70,.3)" stroke="#fff" stroke-dasharray="4 3"/><text x="${x}" y="218" font-size="22" font-weight="700" fill="#fff" text-anchor="middle">+</text><rect x="${x-16}" y="230" width="32" height="12" rx="5" fill="${m.coins>=150?'#3FA882':'#fff'}"/><text x="${x}" y="239" font-size="9" font-weight="700" text-anchor="middle" fill="${m.coins>=150?'#fff':'#5A4A8A'}">150</text></g>`}
+  return s+'</svg>';
+}
+function mrCafeFS(m){
+  const lv=mrLevel(m),st=MR_STORY[lv-1],nx=MR_LV[lv],tier=['Киоск','Уютное кафе','Ресторан у моря','Звёздный ресторан'][lv<=2?0:lv<=5?1:lv<=8?2:3];
+  const pr=nx===undefined?100:Math.round((m.served-MR_LV[lv-1])/(nx-MR_LV[lv-1])*100);
+  return `<div class="mrfs-top"><span class="chip">🪙 ${m.coins}</span><span class="chip">⭐ ${lv}</span><span class="grow"></span><button class="mrfs-x" data-mg="scr" data-v="kitchen" aria-label="К кухне">🍳</button><button class="mrfs-x" data-mg="shop" aria-label="Магазин">🛒</button><button class="mrfs-x" data-mg="mrclose" aria-label="Закрыть игру">✕</button></div>
+  <div class="banner" style="margin:0;max-width:520px;width:100%;justify-self:center"><span style="font-size:13px"><b>${st.a} ${st.n}:</b> ${esc(st.t)}</span></div>
+  <div style="min-height:0;overflow:auto;display:flex;align-items:center"><div style="width:100%;max-width:560px;margin:0 auto">${mrScene(m)}</div></div>
+  <div class="mrfs-bot"><div class="row" style="flex-wrap:nowrap;gap:10px"><b style="font-size:13px;white-space:nowrap">${tier}</b><div class="bar grow" style="height:10px"><i style="width:${pr}%;background:var(--good)"></i></div><span class="muted" style="font-size:12px;white-space:nowrap">${nx===undefined?'максимум':'ещё клиентов: '+(nx-m.served)}</span></div>
+  <div class="row" style="justify-content:center;gap:8px;flex-wrap:nowrap"><button class="btn primary" style="flex:1;max-width:240px" data-mg="scr" data-v="kitchen">🍳 К кухне</button><button class="btn" data-mg="shop">🛒 Магазин</button></div></div>`;
+}
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-sc]');if(!el)return;const a=el.dataset.sc,m=mrState();
+  if(a==='decor'){const j=+el.dataset.j;if(m.decor.includes(j)){const d=MR_DECOR[j];toast(d[0]+' '+d[1]+': +1 монета с каждого заказа');return}
+    mrBuy('decor'+j);setTimeout(()=>{const n=document.querySelector('[data-sc="decor"][data-j="'+j+'"]');if(n&&mrState().decor.includes(j))confetti({target:n})},40);return}
+  if(a==='slot'){mrBuy('slot');return}
+  if(a==='cust'){const k=+el.dataset.k,g=m.cust[k];if(!g)return;
+    const idx=m.cells.findIndex((v,i)=>v&&!mrLocked(i)&&Math.floor(v/10)===g.c&&v%10===g.l);
+    if(idx>=0){mrServe(idx,k);return}
+    toast(g.a+' '+g.name+' просит: '+MR_CH[g.c].i[g.l-1]+' '+MR_CH[g.c].t[g.l-1]+'. Собери это на кухне')}
+});
 render();
 if(!bat(todayS())&&S.batSkip!==todayS())openBat();
 petTick();setInterval(petTick,1000);
